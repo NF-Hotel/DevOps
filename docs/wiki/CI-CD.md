@@ -4,22 +4,26 @@ How a change reaches the NF Hotel server, how a deploy is approved and undone, a
 
 ## How a release flows
 
+Two repositories take part (ADR-0012 in NF-Hotel/NFHotel):
+- **NF-Hotel/NFHotel** holds the application and the workflow entry points `ci.yaml`, `release.yaml` and `cd.yaml`, which keep the triggers, permissions, the `production` environment and the OIDC claims.
+- **NF-Hotel/DevOps** (this repository) holds the steps: the composite actions `release-images` and `deploy-release`, which NFHotel pins by full commit SHA, and everything that runs on the VM.
+
 1. **Pull request.** `NF Hotel CI` builds, tests and checks the formatting on every pull request, with a read-only token and no secrets. One approving review is required.
-2. **Merge to `main`.** CI runs again on `main`. When it is green, `NF Hotel Release` builds four images from that exact commit and pushes them to the GitHub Container Registry:
+2. **Merge to `main`.** CI runs again on `main`. When it is green, `NF Hotel Release` in NFHotel calls the `release-images` action. The action builds four images from that exact NFHotel commit, with the compose files and scripts of the pinned DevOps commit, and pushes them to the GitHub Container Registry:
    - `ghcr.io/nf-hotel/nfhotel-web`
    - `ghcr.io/nf-hotel/nfhotel-api`
    - `ghcr.io/nf-hotel/market-analysis`
    - `ghcr.io/nf-hotel/benchmark`
 
-   Each image is tagged `sha-<commit>`. The run summary and the artifact `release-manifest` (`release.json`) hold one digest per image.
+   Each image is tagged `sha-<NFHotel commit>` and labelled with that commit (`org.opencontainers.image.revision`). The run summary and the artifact `release-manifest` (`release.json`) hold the NFHotel commit, the DevOps commit and one digest per image.
 3. **Approval.** `NF Hotel CD` starts and waits in the environment `production` until a required reviewer approves it. The person who started the run cannot approve it.
 4. **Deploy.** After the approval:
    - the job joins the tailnet as a temporary node tagged `tag:ci`;
    - it logs in to the VM with Tailscale SSH as the user `deploy`;
-   - it runs `sudo -n /usr/local/sbin/nfhotel-deploy deploy <commit> <four digests>`.
+   - it runs `sudo -n /usr/local/sbin/nfhotel-deploy deploy <NFHotel commit> <DevOps commit> <four digests>` (the `deploy-release` action).
 5. **On the VM**, the deploy command (`scripts/deploy-release.sh`):
    - backs up the database;
-   - checks out the commit in `/opt/nfhotel`;
+   - checks out the DevOps commit in `/opt/nfhotel`, a checkout of `NF-Hotel/DevOps`. The application is in the images, so the VM needs no NFHotel checkout;
    - starts the services from the digests without building anything;
    - checks that port 80 answers 301 and HTTPS answers 200.
 
@@ -41,6 +45,12 @@ Open the waiting `NF Hotel CD` run, choose **Review deployments**, tick `product
 - **To see what is deployed:** `sudo /usr/local/sbin/nfhotel-deploy status` prints the release log (`/var/lib/nfhotel-deploy/releases.log`).
 
 A rollback changes the images and the compose files, not the database. Migrations are written so that the previous release still runs on the new schema (ADR-0008, expand then contract).
+
+## Change an action or a deploy script
+
+1. Change it in NF-Hotel/DevOps by a pull request; the DevOps CI must be green and one other person must approve.
+2. In NF-Hotel/NFHotel, open a pull request that moves the pinned SHA in `release.yaml` and `cd.yaml` to the merged DevOps commit. Dependabot proposes this bump once it is set up (MIL-022).
+3. A script that runs as root on the VM (`deploy-release.sh`, `backup-database.sh`) takes effect only after S03 installs it again with `install-deploy-user.sh --apply` or `install-backup.sh --apply`.
 
 ## Back up and restore
 

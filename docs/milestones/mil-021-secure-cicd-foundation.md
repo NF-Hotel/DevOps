@@ -11,8 +11,8 @@
 ## Version History
 | Date | Status | Author | Reviewer | Change | Commit |
 | --- | --- | --- | --- | --- | --- |
-| 2026-10-18 | Deprecated | mikemike | AI as stand-in for S01 | Accepted after RC-089 Go | [f4649ad] |
-| 2026-10-18 | Accepted | mikemike | AI as stand-in for S01 | Added task 10 and criterion 10, the reconciliation of the production VM (ADR-0010); accepted after RC-097 Go | [1b94761] |
+| 2026-10-18 | Deprecated | mikemike | AI as stand-in for S01 | Added task 10 and criterion 10, the reconciliation of the production VM (ADR-0010); accepted after RC-097 Go | [1b94761] |
+| 2026-10-19 | Accepted | mikemike | AI as stand-in for S01 | Moved to NF-Hotel/DevOps (ADR-0012): the workflows are NFHotel entry points calling the actions here, and criterion 10 expects a DevOps checkout; accepted after RC-500 Go | pending |
 
 ---
 
@@ -35,8 +35,8 @@ Supply-chain checks (phase 2, MIL-022) and hardening (phase 3, MIL-023) follow.
   - Secret scanning with push protection and Dependabot alerts are turned on.
   - `SECURITY.md` and `CODEOWNERS` are added.
   - The Environment `production` gets required reviewers and is limited to `main`.
-- `.github/workflows/release.yaml`: builds `nfhotel-web` and `nfhotel-api` on `main` after green CI, pushes them to GHCR, and records the digests in the job summary.
-- `.github/workflows/cd.yaml`: Environment `production`, Tailscale with OpenID Connect (OIDC) federation (`tag:ci`), Tailscale SSH as `deploy`, deploy by digest, health checks, smoke test, rollback, concurrency, release record.
+- `release.yaml` in NFHotel, calling the `release-images` action of this repository (ADR-0012): builds `nfhotel-web` and `nfhotel-api` on `main` after green CI, pushes them to GHCR, and records the digests in the job summary.
+- `cd.yaml` in NFHotel, calling the `deploy-release` action of this repository (ADR-0012): Environment `production`, Tailscale with OpenID Connect (OIDC) federation (`tag:ci`), Tailscale SSH as `deploy`, deploy by digest, health checks, smoke test, rollback, concurrency, release record.
 - `scripts/deploy-release.sh` on the VM, and compose files that read the image reference from `deploy/release.env` (keeping `build:` for local development).
 - Tailscale policy: tags `tag:ci` and `tag:nfhotel-vm`, a grant from `tag:ci` to `tag:nfhotel-vm:22` only, and an `ssh` rule for the user `deploy`. These are configured by S03 and recorded in the wiki.
 - Backups:
@@ -58,7 +58,7 @@ Supply-chain checks (phase 2, MIL-022) and hardening (phase 3, MIL-023) follow.
 | 7 | The CI node reaches only port 22 of `tag:nfhotel-vm` (a test from the runner to another tailnet node fails); no ssh key and no Tailscale secret is stored in GitHub | Yes | No |
 | 8 | A dump from the timer is restored into a throwaway container, and the row counts match; the drill is recorded in an RC | Yes | No |
 | 9 | `actionlint`, `shellcheck`, `shfmt -d` and `bash -n` are clean; reviews against `qc-yaml`, `qc-programming-shell` and `qc-adr` have the verdict `Go` | Yes | No |
-| 10 | On `nf-hotel`, `/opt/nfhotel` is a git checkout of `NF-Hotel/NFHotel` whose compose files describe every running container, and port 5432 does not answer from the tailnet | Yes | No |
+| 10 | On `nf-hotel`, `/opt/nfhotel` is a git checkout of `NF-Hotel/DevOps` (ADR-0012) whose compose files describe every running container, and port 5432 does not answer from the tailnet | Yes | No |
 
 ## Dependencies
 

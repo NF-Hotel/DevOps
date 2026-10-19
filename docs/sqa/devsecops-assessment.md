@@ -11,8 +11,8 @@
 ## Version History
 | Date | Status | Author | Reviewer | Change | Commit |
 | --- | --- | --- | --- | --- | --- |
-| 2026-10-18 | Deprecated | mikemike | S01 (decisions D1 to D10 approved in chat) | Accepted without a catalog checklist; D4, D7 and D10 still need input from S03 | [f4649ad] |
-| 2026-10-18 | Accepted | mikemike | S01 (server inventory given in chat) | Section 2.4.2: `nf-hotel` confirmed as the production VM; the conclusion of 2.4.1 withdrawn; risks R15 and R16; D4 corrected | [1b94761] |
+| 2026-10-18 | Deprecated | mikemike | S01 (server inventory given in chat) | Section 2.4.2: `nf-hotel` confirmed as the production VM; the conclusion of 2.4.1 withdrawn; risks R15 and R16; D4 corrected | [1b94761] |
+| 2026-10-19 | Accepted | mikemike | AI as stand-in for S01 | Section 2.4.3: the repository boundary of ADR-0012 (NFHotel); accepted after RC-500 Go | pending |
 
 This document is a working assessment. Its type is not in `framework/registry/artifact-catalog.md`; a catalog type for it is proposed upstream (rule 5) before it is accepted.
 
@@ -134,6 +134,15 @@ S01 stated the production inventory in chat: hostname `nf-hotel`, Debian 13, tai
 - the network exposure (PostgreSQL on 5432 to the tailnet).
 
 **Consequences for MIL-021.** CD must not deploy to `nf-hotel` until the running deployment is reconciled with the repository (MIL-021 task 10). The deploy command now refuses to run when `/opt/nfhotel` is not a git checkout of this repository. The earlier setup step that stopped the nginx on `nf-hotel` is removed from the wiki: it would have stopped the production proxy.
+
+### 2.4.3 Repository boundary (2026-10-19)
+
+S01 decided that `NF-Hotel/DevOps` is the authoritative repository for all infrastructure and operations work ([ADR-0012]). This assessment and the documents of MIL-021 to MIL-024 moved here with their IDs (`MIGRATION.md`). The pipeline of section 4 is unchanged in design:
+
+- The workflows `ci.yaml`, `release.yaml` and `cd.yaml` stay in NFHotel as entry points, which keep the triggers, permissions, the `production` environment and the OIDC claims.
+- Their steps are the composite actions `release-images` and `deploy-release` of this repository, pinned by full commit SHA.
+- A release names the NFHotel commit, the DevOps commit and four digests.
+- The VM checks out `NF-Hotel/DevOps`.
 
 ### 2.5 TLS, data and recovery
 
@@ -433,3 +442,4 @@ Each link is stored where it is produced: the issue and the PR in GitHub; the CI
 [MIL-023]: ../milestones/mil-023-operational-quality.md
 [f4649ad]: https://github.com/NF-Hotel/NFHotel/commit/f4649adfd68aa312e04533632f0f66ee32df245f
 [1b94761]: https://github.com/NF-Hotel/NFHotel/commit/1b94761ddb5113cd0d34915c01fe7f0f278bba60
+[ADR-0012]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0012-devops-repository-ownership.md

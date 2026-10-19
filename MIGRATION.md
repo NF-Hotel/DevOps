@@ -117,6 +117,12 @@ Listed in the commits of the migration pull request, each with its reason:
 - the release manifest records the commit of this repository;
 - the compose files build from an NFHotel checkout.
 
+Further changes for the boundary of ADR-0012, each in its own commit:
+- `scripts/create-docker-vm.sh` formatted with `shfmt -i 2 -ci` (whitespace only);
+- MIL-021 (deliverable, criterion 10), ADR-0010 (decision 3) and DSA-001 (section 2.4.3), with new Version History rows, reviewed in RC-500;
+- the wiki page CI-CD (the flow across the two repositories);
+- the new actions, scripts and tests, reviewed in RC-501.
+
 ## Copies left in NFHotel
 
 The infrastructure files on NFHotel `main` stay there until the first deploy from this repository is verified. They are then removed by a reviewed pull request (MIL-025 task 7). Until then, **edit them here only**.
