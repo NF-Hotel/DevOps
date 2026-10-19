@@ -98,21 +98,63 @@ node_out() {
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --container) container="${2:?missing value for $1}"; shift 2 ;;
-      --ssh) ssh_target="${2:?missing value for $1}"; shift 2 ;;
-      --name) vm_name="${2:?missing value for $1}"; shift 2 ;;
-      --vmid) vmid="${2:?missing value for $1}"; shift 2 ;;
-      --cores) cores="${2:?missing value for $1}"; shift 2 ;;
-      --memory) memory="${2:?missing value for $1}"; shift 2 ;;
-      --disk) disk_gib="${2:?missing value for $1}"; shift 2 ;;
-      --storage) storage="${2:?missing value for $1}"; shift 2 ;;
-      --snippets) snippets_storage="${2:?missing value for $1}"; shift 2 ;;
-      --bridge) bridge="${2:?missing value for $1}"; shift 2 ;;
-      --ssh-key-file) ssh_key_file="${2:?missing value for $1}"; shift 2 ;;
-      --start) start_vm=true; shift ;;
-      --dry-run) dry_run=true; shift ;;
+      --container)
+        container="${2:?missing value for $1}"
+        shift 2
+        ;;
+      --ssh)
+        ssh_target="${2:?missing value for $1}"
+        shift 2
+        ;;
+      --name)
+        vm_name="${2:?missing value for $1}"
+        shift 2
+        ;;
+      --vmid)
+        vmid="${2:?missing value for $1}"
+        shift 2
+        ;;
+      --cores)
+        cores="${2:?missing value for $1}"
+        shift 2
+        ;;
+      --memory)
+        memory="${2:?missing value for $1}"
+        shift 2
+        ;;
+      --disk)
+        disk_gib="${2:?missing value for $1}"
+        shift 2
+        ;;
+      --storage)
+        storage="${2:?missing value for $1}"
+        shift 2
+        ;;
+      --snippets)
+        snippets_storage="${2:?missing value for $1}"
+        shift 2
+        ;;
+      --bridge)
+        bridge="${2:?missing value for $1}"
+        shift 2
+        ;;
+      --ssh-key-file)
+        ssh_key_file="${2:?missing value for $1}"
+        shift 2
+        ;;
+      --start)
+        start_vm=true
+        shift
+        ;;
+      --dry-run)
+        dry_run=true
+        shift
+        ;;
       -h | --help) usage ;;
-      *) echo "unknown option: $1" >&2; usage ;;
+      *)
+        echo "unknown option: $1" >&2
+        usage
+        ;;
     esac
   done
 
