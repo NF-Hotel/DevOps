@@ -1,0 +1,9 @@
+# Settings files with secrets stay on the server (CONTRIBUTING.md, SECURITY.md).
+*.env
+!*.env.example
+/deploy/market-analysis/market-analysis.toml
+deploy/nginx/tls/
+
+# Outputs of the release action and of local test runs.
+release.json
+/tests/output/
