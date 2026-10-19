@@ -15,6 +15,9 @@ services:
       args:
         BENCHMARK_REPO: ${BENCHMARK_REPO:-https://github.com/NF-Hotel/notebook-benchmark.git}
         BENCHMARK_REF: ${BENCHMARK_REF:-bc6d5ff04ba571e184a0a8bc29ad4b6d4e6255a4}
+      labels:
+        org.opencontainers.image.source: https://github.com/NF-Hotel/NFHotel
+        org.opencontainers.image.revision: ${NFHOTEL_APP_SHA:-unknown}
     restart: unless-stopped
     env_file: ${BENCHMARK_ENV_FILE:-benchmark.env}
     # The notebook has Ollama at localhost:11434 built in: forward that to the

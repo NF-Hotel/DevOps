@@ -1,0 +1,54 @@
+# Build the four NF Hotel images from an NF-Hotel/NFHotel checkout and, with push, push
+# them to GHCR and write the release manifest (ADR-0007, ADR-0012 of NFHotel, MIL-025).
+# Called by release.yaml of NFHotel, pinned by full commit SHA; that job holds the
+# permissions (packages: write) and the GHCR login. Changes outside the repository only
+# with push: 'true' (the packages ghcr.io/nf-hotel/*). The logic is in
+# scripts/build-release-images.sh of this repository, at the same commit.
+name: NF Hotel release images
+description: Build the NF Hotel images from an NFHotel checkout and write the release manifest
+
+inputs:
+  app-path:
+    description: Path of the NF-Hotel/NFHotel checkout in the workspace
+    required: true
+  app-sha:
+    description: The NFHotel commit of the release (the checkout must be at it)
+    required: true
+  registry:
+    description: Image prefix
+    required: false
+    default: ghcr.io/nf-hotel
+  push:
+    description: "'true' pushes the images and writes release.json; anything else only builds"
+    required: false
+    default: "false"
+  devops-sha:
+    description: The commit of NF-Hotel/DevOps; only for this repository's own CI, where the action is local
+    required: false
+    default: ""
+
+outputs:
+  devops-sha:
+    description: The NF-Hotel/DevOps commit the action ran at
+    value: ${{ steps.devops.outputs.devops_sha }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the DevOps commit
+      id: devops
+      shell: bash
+      env:
+        ACTION_REF: ${{ github.action_ref }}
+        DEVOPS_SHA_INPUT: ${{ inputs.devops-sha }}
+      run: bash "$GITHUB_ACTION_PATH/../../../scripts/action-ref.sh"
+
+    - name: Build the images
+      shell: bash
+      env:
+        APP_PATH: ${{ inputs.app-path }}
+        APP_SHA: ${{ inputs.app-sha }}
+        REGISTRY: ${{ inputs.registry }}
+        PUSH: ${{ inputs.push }}
+        DEVOPS_SHA: ${{ steps.devops.outputs.devops_sha }}
+      run: bash "$GITHUB_ACTION_PATH/../../../scripts/release-steps.sh"

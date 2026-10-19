@@ -16,11 +16,18 @@
 # compose requires; no real setting or secret is read. The pinned refs of the Python
 # services stay in their compose files, so they are written once.
 #
-# Usage: build-release-images.sh [--push] [--registry <host/owner>] [--sha <commit>]
+# The application source is an NF-Hotel/NFHotel checkout (ADR-0012 of NFHotel); the compose
+# files, Dockerfiles of the Python services and this script come from NF-Hotel/DevOps.
+#
+# Usage: build-release-images.sh --app-dir <NFHotel checkout> [--push] [--registry <host/owner>]
+#                                [--sha <commit>] [--devops-sha <commit>]
 #                                [--output <file>] [--summary <file>]
 #   --push       push the images and write the manifest (changes the registry)
 #   --registry   image prefix (default ghcr.io/nf-hotel)
-#   --sha        the commit of the release (default: git rev-parse HEAD)
+#   --app-dir    the NFHotel checkout to build web and api from (its HEAD must be --sha)
+#   --sha        the NFHotel commit of the release (default: HEAD of --app-dir)
+#   --devops-sha the NF-Hotel/DevOps commit of this script, written to the manifest
+#                (required with --push; default: HEAD of this repository)
 #   --output     the release manifest to write with --push (default release.json)
 #   --summary    a Markdown file to append the manifest to (the job summary in CI)
 # The caller is logged in to the registry when pushing (docker login ghcr.io).
@@ -43,6 +50,8 @@ readonly IMAGES=(
 
 registry="ghcr.io/nf-hotel"
 sha=""
+app_dir=""
+devops_sha=""
 output="release.json"
 summary=""
 push=0
@@ -52,6 +61,14 @@ while (($#)); do
     --push) push=1 ;;
     --registry)
       registry="${2:?--registry needs a value}"
+      shift
+      ;;
+    --app-dir)
+      app_dir="${2:?--app-dir needs a value}"
+      shift
+      ;;
+    --devops-sha)
+      devops_sha="${2:?--devops-sha needs a value}"
       shift
       ;;
     --sha)
@@ -78,7 +95,16 @@ while (($#)); do
   shift
 done
 
-[[ -n "$sha" ]] || sha="$(git -C "$ROOT" rev-parse HEAD)"
+[[ -n "$app_dir" && -d "$app_dir" ]] || die "give --app-dir, an NF-Hotel/NFHotel checkout"
+app_dir="$(cd "$app_dir" && pwd)"
+[[ -f "$app_dir/Dockerfile" && -f "$app_dir/Dockerfile.api" ]] || die "$app_dir has no Dockerfile and Dockerfile.api"
+head="$(git -C "$app_dir" rev-parse HEAD)" || die "$app_dir is not a git checkout"
+[[ -n "$sha" ]] || sha="$head"
+[[ "$head" == "$sha" ]] || die "$app_dir is at $head, not at the release commit $sha"
+[[ -n "$devops_sha" ]] || devops_sha="$(git -C "$ROOT" rev-parse HEAD)"
+[[ "$devops_sha" =~ ^[0-9a-f]{40}$ ]] || die "the DevOps commit '$devops_sha' is not a full SHA"
+# The compose files build web and api from here and label every image with the commit.
+export NFHOTEL_APP_DIR="$app_dir" NFHOTEL_APP_SHA="$sha"
 [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || die "the commit '$sha' is not a full SHA"
 [[ "$registry" =~ ^[a-z0-9./_-]+$ ]] || die "the registry '$registry' must be lower case"
 docker compose version >/dev/null 2>&1 || die "the docker compose plugin is missing"
@@ -126,6 +152,7 @@ done
 {
   echo "{"
   echo "  \"sha\": \"$sha\","
+  echo "  \"devops_sha\": \"$devops_sha\","
   echo "  \"images\": {"
   last=$((${#digests[@]} - 1))
   for i in "${!digests[@]}"; do
