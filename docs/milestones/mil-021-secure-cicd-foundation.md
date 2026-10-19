@@ -12,7 +12,7 @@
 | Date | Status | Author | Reviewer | Change | Commit |
 | --- | --- | --- | --- | --- | --- |
 | 2026-10-18 | Deprecated | mikemike | AI as stand-in for S01 | Added task 10 and criterion 10, the reconciliation of the production VM (ADR-0010); accepted after RC-097 Go | [1b94761] |
-| 2026-10-19 | Accepted | mikemike | AI as stand-in for S01 | Moved to NF-Hotel/DevOps (ADR-0012): the workflows are NFHotel entry points calling the actions here, and criterion 10 expects a DevOps checkout; accepted after RC-500 Go | pending |
+| 2026-10-19 | Accepted | mikemike | AI as stand-in for S01 | Moved to NF-Hotel/DevOps (ADR-0012): the workflows are NFHotel entry points calling the actions here, and criterion 10 expects a DevOps checkout; accepted after RC-500 Go | [c1dc5f7] |
 
 ---
 
@@ -116,3 +116,4 @@ Supply-chain checks (phase 2, MIL-022) and hardening (phase 3, MIL-023) follow.
 [US-001]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/user-stories.md
 [f4649ad]: https://github.com/NF-Hotel/NFHotel/commit/f4649adfd68aa312e04533632f0f66ee32df245f
 [1b94761]: https://github.com/NF-Hotel/NFHotel/commit/1b94761ddb5113cd0d34915c01fe7f0f278bba60
+[c1dc5f7]: https://github.com/NF-Hotel/DevOps/commit/c1dc5f74e11ce4e10f7f1dbdf5ef304e4db8429e

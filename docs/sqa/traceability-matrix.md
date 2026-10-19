@@ -9,7 +9,7 @@
 ## Version History
 | Date | Status | Author | Reviewer | Change | Commit |
 | --- | --- | --- | --- | --- | --- |
-| 2026-10-19 | Accepted | mikemike | AI as stand-in for S01 | Initial version: the documents moved from NFHotel (MIGRATION.md) | pending |
+| 2026-10-19 | Accepted | mikemike | AI as stand-in for S01 | Initial version: the documents moved from NFHotel (MIGRATION.md) | [c1dc5f7] |
 
 ---
 
@@ -62,3 +62,4 @@ Tracks the backward and forward links of the artifact instances in this reposito
 [RC-101]: ./reviews/rc-101-mil-024-code-and-gate.md
 [RC-500]: ./reviews/rc-500-migration-documents.md
 [RC-501]: ./reviews/rc-501-migration-code.md
+[c1dc5f7]: https://github.com/NF-Hotel/DevOps/commit/c1dc5f74e11ce4e10f7f1dbdf5ef304e4db8429e

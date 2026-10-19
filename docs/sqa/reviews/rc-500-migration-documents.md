@@ -9,7 +9,7 @@
 ## Version History
 | Date | Status | Author | Reviewer | Change | Commit |
 | --- | --- | --- | --- | --- | --- |
-| 2026-10-19 | Accepted | mikemike | AI as stand-in for S01 | Initial version | pending |
+| 2026-10-19 | Accepted | mikemike | AI as stand-in for S01 | Initial version | [c1dc5f7] |
 
 ---
 
@@ -54,3 +54,4 @@ Go — the changes keep MIL-021 and ADR-0010 consistent with ADR-0012 and with t
 [ADR-0012]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0012-devops-repository-ownership.md
 [QC-MIL-001]: ../../../framework/qc/artifacts/qc-milestones-gateways.md
 [QC-ADR-001]: ../../../framework/qc/artifacts/qc-adr.md
+[c1dc5f7]: https://github.com/NF-Hotel/DevOps/commit/c1dc5f74e11ce4e10f7f1dbdf5ef304e4db8429e

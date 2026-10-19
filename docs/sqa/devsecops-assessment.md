@@ -12,7 +12,7 @@
 | Date | Status | Author | Reviewer | Change | Commit |
 | --- | --- | --- | --- | --- | --- |
 | 2026-10-18 | Deprecated | mikemike | S01 (server inventory given in chat) | Section 2.4.2: `nf-hotel` confirmed as the production VM; the conclusion of 2.4.1 withdrawn; risks R15 and R16; D4 corrected | [1b94761] |
-| 2026-10-19 | Accepted | mikemike | AI as stand-in for S01 | Section 2.4.3: the repository boundary of ADR-0012 (NFHotel); accepted after RC-500 Go | pending |
+| 2026-10-19 | Accepted | mikemike | AI as stand-in for S01 | Section 2.4.3: the repository boundary of ADR-0012 (NFHotel); accepted after RC-500 Go | [c1dc5f7] |
 
 This document is a working assessment. Its type is not in `framework/registry/artifact-catalog.md`; a catalog type for it is proposed upstream (rule 5) before it is accepted.
 
@@ -443,3 +443,4 @@ Each link is stored where it is produced: the issue and the PR in GitHub; the CI
 [f4649ad]: https://github.com/NF-Hotel/NFHotel/commit/f4649adfd68aa312e04533632f0f66ee32df245f
 [1b94761]: https://github.com/NF-Hotel/NFHotel/commit/1b94761ddb5113cd0d34915c01fe7f0f278bba60
 [ADR-0012]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0012-devops-repository-ownership.md
+[c1dc5f7]: https://github.com/NF-Hotel/DevOps/commit/c1dc5f74e11ce4e10f7f1dbdf5ef304e4db8429e

@@ -12,7 +12,7 @@
 | Date | Status | Author | Reviewer | Change | Commit |
 | --- | --- | --- | --- | --- | --- |
 | 2026-10-18 | Deprecated | mikemike | AI as stand-in for S01 | Accepted after RC-098 Go | [1b94761] |
-| 2026-10-19 | Accepted | mikemike | AI as stand-in for S01 | Decision 3 refined by ADR-0012 of NFHotel: the checkout on the VM is NF-Hotel/DevOps, and the reconciliation pull request goes to NF-Hotel/DevOps; accepted after RC-500 Go | pending |
+| 2026-10-19 | Accepted | mikemike | AI as stand-in for S01 | Decision 3 refined by ADR-0012 of NFHotel: the checkout on the VM is NF-Hotel/DevOps, and the reconciliation pull request goes to NF-Hotel/DevOps; accepted after RC-500 Go | [c1dc5f7] |
 
 Allowed Status values: `Proposed`, `Accepted`, `Rejected`, `Deprecated`, `Superseded by ADR-NNNN`.
 
@@ -103,3 +103,4 @@ We follow option 3: `nf-hotel` (Proxmox VMID 100) is the production VM of ADR-00
 [DSA-001]: ../sqa/devsecops-assessment.md
 [1b94761]: https://github.com/NF-Hotel/NFHotel/commit/1b94761ddb5113cd0d34915c01fe7f0f278bba60
 [ADR-0012]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0012-devops-repository-ownership.md
+[c1dc5f7]: https://github.com/NF-Hotel/DevOps/commit/c1dc5f74e11ce4e10f7f1dbdf5ef304e4db8429e
