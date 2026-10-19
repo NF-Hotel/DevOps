@@ -95,8 +95,8 @@ We follow option 3: `nf-hotel` (Proxmox VMID 100) is the production VM of ADR-00
 
 ---
 
-[ADR-0003]: ./adr-0003-proxmox-vm-for-services.md
-[ADR-0004]: ./adr-0004-database-api.md
+[ADR-0003]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0003-proxmox-vm-for-services.md
+[ADR-0004]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0004-database-api.md
 [ADR-0007]: ./adr-0007-cicd-and-supply-chain.md
 [ADR-0008]: ./adr-0008-database-migration-and-backup.md
 [MIL-021]: ../milestones/mil-021-secure-cicd-foundation.md

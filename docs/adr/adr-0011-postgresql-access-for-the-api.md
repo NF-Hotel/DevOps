@@ -120,8 +120,8 @@ We use separate least-privilege roles on the one existing instance, an internal 
 
 ---
 
-[ADR-0004]: ./adr-0004-database-api.md
-[ADR-0006]: ./adr-0006-tls.md
+[ADR-0004]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0004-database-api.md
+[ADR-0006]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0006-tls.md
 [ADR-0007]: ./adr-0007-cicd-and-supply-chain.md
 [ADR-0008]: ./adr-0008-database-migration-and-backup.md
 [ADR-0010]: ./adr-0010-production-vm-as-deployed.md

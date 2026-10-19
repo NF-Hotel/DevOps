@@ -106,13 +106,13 @@ Supply-chain checks (phase 2, MIL-022) and hardening (phase 3, MIL-023) follow.
 
 ---
 
-[BC-001]: ../business-case.md
-[ADR-0003]: ../adr/adr-0003-proxmox-vm-for-services.md
-[ADR-0006]: ../adr/adr-0006-tls.md
+[BC-001]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/business-case.md
+[ADR-0003]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0003-proxmox-vm-for-services.md
+[ADR-0006]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0006-tls.md
 [ADR-0007]: ../adr/adr-0007-cicd-and-supply-chain.md
 [ADR-0008]: ../adr/adr-0008-database-migration-and-backup.md
 [ADR-0010]: ../adr/adr-0010-production-vm-as-deployed.md
 [DSA-001]: ../sqa/devsecops-assessment.md
-[US-001]: ../user-stories.md
+[US-001]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/user-stories.md
 [f4649ad]: https://github.com/NF-Hotel/NFHotel/commit/f4649adfd68aa312e04533632f0f66ee32df245f
 [1b94761]: https://github.com/NF-Hotel/NFHotel/commit/1b94761ddb5113cd0d34915c01fe7f0f278bba60

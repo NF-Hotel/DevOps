@@ -75,8 +75,8 @@ WAL archiving is not chosen now: a daily dump with a tested restore fits the dat
 
 ---
 
-[BC-001]: ../business-case.md
-[ADR-0004]: ./adr-0004-database-api.md
+[BC-001]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/business-case.md
+[ADR-0004]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0004-database-api.md
 [ADR-0007]: ./adr-0007-cicd-and-supply-chain.md
 [MIL-021]: ../milestones/mil-021-secure-cicd-foundation.md
 [MIL-022]: ../milestones/mil-022-supply-chain-security.md

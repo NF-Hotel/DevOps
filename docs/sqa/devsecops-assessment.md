@@ -420,10 +420,10 @@ Each link is stored where it is produced: the issue and the PR in GitHub; the CI
 
 ---
 
-[BC-001]: ../business-case.md
-[ADR-0003]: ../adr/adr-0003-proxmox-vm-for-services.md
-[ADR-0004]: ../adr/adr-0004-database-api.md
-[ADR-0006]: ../adr/adr-0006-tls.md
+[BC-001]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/business-case.md
+[ADR-0003]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0003-proxmox-vm-for-services.md
+[ADR-0004]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0004-database-api.md
+[ADR-0006]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0006-tls.md
 [ADR-0007]: ../adr/adr-0007-cicd-and-supply-chain.md
 [ADR-0008]: ../adr/adr-0008-database-migration-and-backup.md
 [ADR-0009]: ../adr/adr-0009-tls-certificates.md

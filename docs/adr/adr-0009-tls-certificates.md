@@ -72,7 +72,7 @@ We use `tailscale cert` for the tailnet name now, and certbot with the HTTP-01 w
 
 ---
 
-[ADR-0006]: ./adr-0006-tls.md
+[ADR-0006]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0006-tls.md
 [ADR-0007]: ./adr-0007-cicd-and-supply-chain.md
 [MIL-021]: ../milestones/mil-021-secure-cicd-foundation.md
 [MIL-023]: ../milestones/mil-023-operational-quality.md

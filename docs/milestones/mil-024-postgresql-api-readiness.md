@@ -101,8 +101,8 @@ Decide whether the production database on `nf-hotel` is ready for the ASP.NET Co
 
 ---
 
-[BC-001]: ../business-case.md
-[ADR-0004]: ../adr/adr-0004-database-api.md
+[BC-001]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/business-case.md
+[ADR-0004]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0004-database-api.md
 [ADR-0010]: ../adr/adr-0010-production-vm-as-deployed.md
 [ADR-0011]: ../adr/adr-0011-postgresql-access-for-the-api.md
 [MIL-021]: ./mil-021-secure-cicd-foundation.md

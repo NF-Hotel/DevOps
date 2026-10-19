@@ -98,8 +98,8 @@ Decide whether the VM and the containers are hardened and observed well enough t
 
 ---
 
-[BC-001]: ../business-case.md
-[ADR-0003]: ../adr/adr-0003-proxmox-vm-for-services.md
+[BC-001]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/business-case.md
+[ADR-0003]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/adr/adr-0003-proxmox-vm-for-services.md
 [MIL-022]: ./mil-022-supply-chain-security.md
 [DSA-001]: ../sqa/devsecops-assessment.md
 [f4649ad]: https://github.com/NF-Hotel/NFHotel/commit/f4649adfd68aa312e04533632f0f66ee32df245f

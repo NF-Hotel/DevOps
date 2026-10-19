@@ -93,7 +93,7 @@ The level is claimed only when criterion 3 holds.
 
 ---
 
-[BC-001]: ../business-case.md
+[BC-001]: https://github.com/NF-Hotel/NFHotel/blob/main/docs/business-case.md
 [ADR-0007]: ../adr/adr-0007-cicd-and-supply-chain.md
 [ADR-0008]: ../adr/adr-0008-database-migration-and-backup.md
 [MIL-021]: ./mil-021-secure-cicd-foundation.md
