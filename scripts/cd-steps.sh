@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# The steps of the CD workflow (.github/workflows/cd.yaml, ADR-0007, MIL-021 task 6),
-# one subcommand per step, so the workflow keeps each run block to one command
-# (QC-YML-001 criterion 7). It runs on the GitHub runner, never on the VM.
+# The steps of the deploy-release action (.github/actions/deploy-release, ADR-0007,
+# MIL-021 task 6), called by cd.yaml of NF-Hotel/NFHotel (ADR-0012 of NFHotel), one
+# subcommand per step (QC-YML-001 criterion 7). It runs on the GitHub runner of the
+# NFHotel job, never on the VM.
 #
 # Subcommands:
 #   check-run      the run in RUN_ID must be a successful "NF Hotel Release" run of main
@@ -19,7 +20,8 @@
 #   GH_TOKEN     the job token, for check-run
 #   RUN_ID       the release run, for check-run and summary
 #   VM_HOST      the tailnet name of the VM, for deploy
-#   SHA WEB API ANALYSIS BENCHMARK   the checked manifest fields, for deploy and summary
+#   SHA DEVOPS_SHA WEB API ANALYSIS BENCHMARK   the checked manifest fields, for deploy
+#                and summary
 #   OUTCOME      the job status, for summary
 #
 # Usage: cd-steps.sh check-run|read-manifest|deploy|summary
@@ -53,11 +55,14 @@ check_run() {
 }
 
 read_manifest() {
-  local sha name ref
+  local sha ops_sha name ref
   [[ -f "$MANIFEST" ]] || fail "$MANIFEST is missing"
   sha="$(jq -r '.sha' "$MANIFEST")"
   [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || fail "bad commit in $MANIFEST"
   echo "sha=$sha" >>"$GITHUB_OUTPUT"
+  ops_sha="$(jq -r '.devops_sha' "$MANIFEST")"
+  [[ "$ops_sha" =~ ^[0-9a-f]{40}$ ]] || fail "bad DevOps commit in $MANIFEST"
+  echo "devops_sha=$ops_sha" >>"$GITHUB_OUTPUT"
   for name in "${IMAGE_NAMES[@]}"; do
     ref="$(jq -r --arg n "$name" '.images[$n]' "$MANIFEST")"
     [[ "$ref" =~ ^ghcr\.io/nf-hotel/${name}@sha256:[0-9a-f]{64}$ ]] || fail "bad digest for $name in $MANIFEST"
@@ -69,7 +74,7 @@ deploy() {
   [[ "${VM_HOST:-}" =~ ^[a-z0-9.-]+$ ]] || fail "set the environment variable NFHOTEL_VM_HOST of production"
   local status=0
   tailscale ssh "deploy@$VM_HOST" \
-    sudo -n /usr/local/sbin/nfhotel-deploy deploy "$SHA" "$WEB" "$API" "$ANALYSIS" "$BENCHMARK" \
+    sudo -n /usr/local/sbin/nfhotel-deploy deploy "$SHA" "$DEVOPS_SHA" "$WEB" "$API" "$ANALYSIS" "$BENCHMARK" \
     2>&1 | tee deploy.log || status=$?
   ((status == 0)) || fail "the deploy on $VM_HOST failed (exit $status); see the deploy log"
 }
@@ -78,7 +83,8 @@ summary() {
   {
     echo "## Deployment to production: ${OUTCOME:-unknown}"
     echo
-    echo "- Commit: \`${SHA:-none}\`"
+    echo "- NFHotel commit: \`${SHA:-none}\`"
+    echo "- DevOps commit: \`${DEVOPS_SHA:-none}\`"
     echo "- Release run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/${RUN_ID:-none}"
     echo "- Started by: $GITHUB_ACTOR ($GITHUB_EVENT_NAME); the approver is in the environment history"
     if [[ -f "$MANIFEST" ]]; then

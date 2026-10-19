@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
-# Deploy one NFHotel release on the VM: the commit and the image digests that the
-# Release workflow recorded (ADR-0007, MIL-021 task 6). The CD workflow calls it
+# Deploy one NFHotel release on the VM: the NFHotel commit, the NF-Hotel/DevOps commit
+# and the image digests that the release action recorded (ADR-0007, MIL-021 task 6;
+# ADR-0012 of NFHotel). The CD workflow calls it
 # over Tailscale SSH as the user deploy, through sudo; scripts/install-deploy-user.sh
 # installs it as /usr/local/sbin/nfhotel-deploy, owned by root, so a change to this
 # file in git takes effect only when S03 installs it again.
 #
 # deploy:
 #   1. check every argument against a strict pattern (nothing else reaches a shell), and
-#      refuse when /opt/nfhotel is not a git checkout of NF-Hotel/NFHotel (ADR-0010)
+#      refuse when /opt/nfhotel is not a git checkout of NF-Hotel/DevOps (ADR-0010,
+#      ADR-0012 of NFHotel)
 #   2. take a lock, so two deploys never overlap
 #   3. run the database backup if it is installed (ADR-0008)
-#   4. check out the commit in /opt/nfhotel (detached; the git-ignored settings stay)
+#   4. check out the DevOps commit in /opt/nfhotel (detached; the git-ignored settings
+#      stay): the compose files and scripts of the release. The application is in the
+#      images, so no NFHotel checkout is on the VM
 #   5. run scripts/deploy-services.sh --no-build with the digests: images are pulled,
 #      never built, and compose recreates only the containers whose image or
 #      configuration changed; named volumes are never removed
@@ -23,10 +27,11 @@
 # refused argument change nothing. The die and usage helpers are kept in this file
 # because it is installed alone (scripts/lib/common.sh is not beside it).
 #
-# Usage: deploy-release.sh deploy <sha> <web> <api> <analysis> <benchmark>
+# Usage: deploy-release.sh deploy <app-sha> <devops-sha> <web> <api> <analysis> <benchmark>
 #        deploy-release.sh rollback
 #        deploy-release.sh status
-#   <sha>        the 40-character commit of the release
+#   <app-sha>    the 40-character NF-Hotel/NFHotel commit of the release (recorded)
+#   <devops-sha> the 40-character NF-Hotel/DevOps commit to check out
 #   <web> ...    ghcr.io/nf-hotel/<image>@sha256:<64 hex>, in this order:
 #                nfhotel-web, nfhotel-api, market-analysis, benchmark
 # Env:   NFHOTEL_DIR (default /opt/nfhotel), NFHOTEL_USER (default nfhotel),
@@ -69,17 +74,18 @@ as_app() {
   fi
 }
 
-# check_release <sha> <digest...>: refuse anything that is not a full commit and four
-# digests of the expected images in the expected order.
+# check_release <app-sha> <devops-sha> <digest...>: refuse anything that is not two full
+# commits and four digests of the expected images in the expected order.
 check_release() {
-  local sha="$1" i
-  shift
-  [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || refuse "the commit must be 40 lower-case hex characters"
+  local i
+  [[ "${1:-}" =~ ^[0-9a-f]{40}$ ]] || refuse "the NFHotel commit must be 40 lower-case hex characters"
+  [[ "${2:-}" =~ ^[0-9a-f]{40}$ ]] || refuse "the DevOps commit must be 40 lower-case hex characters"
+  shift 2
   (($# == ${#NAMES[@]})) || refuse "expected ${#NAMES[@]} image digests, got $#"
   for i in "${!NAMES[@]}"; do
     local ref="${*:i+1:1}"
     [[ "$ref" =~ ^${registry//./\\.}/${NAMES[$i]}@sha256:[0-9a-f]{64}$ ]] ||
-      refuse "argument $((i + 2)) is not $registry/${NAMES[$i]}@sha256:<64 hex>"
+      refuse "argument $((i + 3)) is not $registry/${NAMES[$i]}@sha256:<64 hex>"
   done
 }
 
@@ -109,16 +115,17 @@ smoke_test() {
   echo "smoke test: $http answers 301, $https answers 200"
 }
 
-# apply <sha> <web> <api> <analysis> <benchmark>: check out and start one release.
+# apply <app-sha> <devops-sha> <web> <api> <analysis> <benchmark>: check out the DevOps
+# commit and start one release.
 apply() {
-  local sha="$1"
-  echo "==> checking out $sha in $app_dir"
+  local sha="$2"
+  echo "==> release of NFHotel $1: checking out DevOps $sha in $app_dir"
   as_app git fetch --quiet --depth 1 origin "$sha" || return 1
   as_app git checkout --quiet --detach "$sha" || return 1
   [[ "$(as_app git rev-parse HEAD)" == "$sha" ]] || return 1
 
   echo "==> starting the services from the release images (no build)"
-  as_app env NFHOTEL_WEB_IMAGE="$2" NFHOTEL_API_IMAGE="$3" MARKET_ANALYSIS_IMAGE="$4" BENCHMARK_IMAGE="$5" \
+  as_app env NFHOTEL_WEB_IMAGE="$3" NFHOTEL_API_IMAGE="$4" MARKET_ANALYSIS_IMAGE="$5" BENCHMARK_IMAGE="$6" \
     bash scripts/deploy-services.sh --no-build || return 1
   smoke_test
 }
@@ -126,14 +133,14 @@ apply() {
 # previous_release <n>: the n-th latest successful release line (1 = latest).
 previous_release() {
   [[ -f "$release_log" ]] || return 1
-  tail -n "$1" "$release_log" | head -n 1 | awk 'NF == 6 { print $2, $3, $4, $5, $6 }'
+  tail -n "$1" "$release_log" | head -n 1 | awk 'NF == 7 { print $2, $3, $4, $5, $6, $7 }'
 }
 
 record() {
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*" >>"$release_log"
 }
 
-# check_checkout: refuse a VM whose deployment is not this repository (ADR-0010). On a
+# check_checkout: refuse a VM whose deployment is not NF-Hotel/DevOps (ADR-0010, ADR-0012). On a
 # server that still runs a configuration outside git, a deploy would start a second
 # stack next to the running one, so it stops before the backup and the checkout.
 check_checkout() {
@@ -141,8 +148,8 @@ check_checkout() {
   [[ -d "$app_dir/.git" ]] ||
     die "$app_dir is not a git checkout; reconcile the running deployment with the repository first (ADR-0010, MIL-021 task 10)"
   origin="$(as_app git config --get remote.origin.url)" || die "$app_dir has no origin remote"
-  [[ "$origin" =~ ^(https://github\.com/|git@github\.com:)NF-Hotel/NFHotel(\.git)?$ ]] ||
-    die "$app_dir is a checkout of '$origin', not of NF-Hotel/NFHotel"
+  [[ "$origin" =~ ^(https://github\.com/|git@github\.com:)NF-Hotel/DevOps(\.git)?$ ]] ||
+    die "$app_dir is a checkout of '$origin', not of NF-Hotel/DevOps"
 }
 
 deploy() {
@@ -167,7 +174,7 @@ deploy() {
   echo "==> the deploy of $1 failed" >&2
   if [[ -n "$last" ]]; then
     echo "==> rolling back to the previous release" >&2
-    # shellcheck disable=SC2086 # the line holds the five checked fields
+    # shellcheck disable=SC2086 # the line holds the six checked fields
     if apply $last; then
       echo "==> rolled back to ${last%% *}" >&2
     else
@@ -184,7 +191,7 @@ rollback() {
   target="$(previous_release 2 || true)"
   [[ -n "$target" ]] || die "the release log has no release before the latest one"
   check_checkout
-  # shellcheck disable=SC2086 # the line holds the five checked fields
+  # shellcheck disable=SC2086 # the line holds the six checked fields
   check_release $target
   # shellcheck disable=SC2086
   apply $target || die "the rollback to ${target%% *} failed"
