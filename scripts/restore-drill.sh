@@ -72,11 +72,14 @@ age --decrypt --identity "$identity" --output "$work/nfhotel.dump" "$backup" || 
 echo "==> 2. starting a throwaway $IMAGE (no network)"
 docker run --detach --name "$CONTAINER" --network none \
   --env POSTGRES_PASSWORD=drill --env POSTGRES_DB=drill "$IMAGE" >/dev/null
+# The image first runs a temporary server for its init scripts, on the socket only, then
+# stops it and starts the real one. Only the real one listens on TCP, so readiness is
+# checked on 127.0.0.1 (the loopback exists even with --network none).
 for _ in $(seq 60); do
-  docker exec "$CONTAINER" pg_isready --username postgres --dbname drill >/dev/null 2>&1 && break
+  docker exec "$CONTAINER" pg_isready --host 127.0.0.1 --username postgres --dbname drill >/dev/null 2>&1 && break
   sleep 1
 done
-docker exec "$CONTAINER" pg_isready --username postgres --dbname drill >/dev/null || die "PostgreSQL did not start"
+docker exec "$CONTAINER" pg_isready --host 127.0.0.1 --username postgres --dbname drill >/dev/null || die "PostgreSQL did not start"
 
 echo "==> 3. restoring"
 docker cp "$work/nfhotel.dump" "$CONTAINER:/tmp/nfhotel.dump" >/dev/null
