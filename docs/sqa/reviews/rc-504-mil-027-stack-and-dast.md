@@ -36,7 +36,7 @@
 | SH 7 | No secret in a script, on a command line or echoed | Pass | Every secret is generated per run and kept in files of mode 600 under a 700 folder. The passwords reach the containers by `--env-file`, never by argument, and are never printed; `stack.env` is printed nowhere |
 | SH 8 | Explicit flag for external changes | Pass | Nothing outside the runner's Docker changes. The stack has no host port (`!reset` override); ZAP and the tests attack `https://nginx` on the stack's own network only |
 | SH 9 | Header comment | Pass | Every new script and test |
-| SH 11 | Behaviour is tested | Pass | `test-dast-rules.sh`: 10 checks. `check-e2e-stack.sh`: 10 checks of the running stack. Locally: the 9 end-to-end tests pass, and the ZAP baseline runs signed out and signed in (it reached `/admin/revenue` as the Manager), with 0 High alerts |
+| SH 11 | Behaviour is tested | Pass | `test-dast-rules.sh`: 14 checks (the rules file and the SARIF conversion). `check-e2e-stack.sh`: 10 checks of the running stack. Locally: the 9 end-to-end tests pass, and the ZAP baseline runs signed out and signed in (it reached `/admin/revenue` as the Manager), with 0 High alerts |
 | SH 12 | shfmt | Pass | No diff |
 | SH 15 | Defined once | Pass | The stack is started by one script for the tests, the scan and the CI check; it uses the compose files of `deploy/` |
 | WF 4 | Header comment of each workflow and action | Pass | Both actions state what they start, what they attack, the permissions and what is uploaded |

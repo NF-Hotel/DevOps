@@ -15,6 +15,7 @@
 #
 # Usage: dast-scan.sh baseline|full --stack-env <stack.env> --rules <zap-rules.tsv> --results <folder>
 #        dast-scan.sh --check-rules <zap-rules.tsv> [<today as YYYY-MM-DD>]
+#        dast-scan.sh --to-sarif <ZAP report.json>   (print the SARIF of a report)
 # Exit:  0 the gate passes; 1 it fails or a scan could not run; 2 usage error
 # Needs: bash 4+, docker, jq, GNU date
 
@@ -59,6 +60,38 @@ check_rules() {
   ((bad == 0)) || exit 1
   echo "==> $file: every IGNORE and WARN rule has a reason and expires within $MAX_DAYS days"
 }
+
+# to_sarif <report.json>: the alerts of a ZAP JSON report as SARIF 2.1.0 for code scanning.
+# Code scanning takes only repository paths as locations, so a location is the path of
+# the URL under dast/ (https://nginx/admin/revenue becomes dast/admin/revenue), and the
+# full URL is in the message.
+to_sarif() {
+  jq '{
+    version: "2.1.0",
+    "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+    runs: [{
+      tool: {driver: {name: "OWASP ZAP", informationUri: "https://www.zaproxy.org/",
+        rules: [.site[]?.alerts[]? | {id: .pluginid, name: .alert,
+          shortDescription: {text: .alert}, helpUri: ("https://www.zaproxy.org/docs/alerts/" + .pluginid + "/")}]
+          | unique_by(.id)}},
+      results: [.site[]?.alerts[]? | . as $a | .instances[]? | {
+        ruleId: $a.pluginid,
+        level: ({"3": "error", "2": "warning", "1": "note"}[$a.riskcode] // "none"),
+        message: {text: ($a.alert + " (" + $a.riskdesc + ") at " + .method + " " + .uri)},
+        locations: [{physicalLocation: {artifactLocation: {
+          uri: ("dast/" + (.uri | sub("^[a-z]+://[^/]+/?"; "") | sub("[?#].*$"; "")
+            | if . == "" then "index" else . end))}}}]}]
+    }]}' "$1"
+}
+
+if [[ "${1:-}" == "--to-sarif" ]]; then
+  [[ $# -eq 2 && -f "$2" ]] || {
+    usage >&2
+    exit 2
+  }
+  to_sarif "$2"
+  exit 0
+fi
 
 if [[ "${1:-}" == "--check-rules" ]]; then
   [[ $# -ge 2 ]] || {
@@ -157,24 +190,6 @@ zap() {
   [[ -f "$work/$name.json" ]] || die "ZAP ($name) wrote no report"
   cp "$work/$name.json" "$work/$name.html" "$results/"
   to_sarif "$results/$name.json" >"$results/$name.sarif"
-}
-
-# to_sarif <report.json>: the alerts of a ZAP JSON report as SARIF 2.1.0 for code scanning.
-to_sarif() {
-  jq '{
-    version: "2.1.0",
-    "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-    runs: [{
-      tool: {driver: {name: "OWASP ZAP", informationUri: "https://www.zaproxy.org/",
-        rules: [.site[]?.alerts[]? | {id: .pluginid, name: .alert,
-          shortDescription: {text: .alert}, helpUri: ("https://www.zaproxy.org/docs/alerts/" + .pluginid + "/")}]
-          | unique_by(.id)}},
-      results: [.site[]?.alerts[]? | . as $a | .instances[]? | {
-        ruleId: $a.pluginid,
-        level: ({"3": "error", "2": "warning", "1": "note"}[$a.riskcode] // "none"),
-        message: {text: ($a.alert + " (" + $a.riskdesc + ")")},
-        locations: [{physicalLocation: {artifactLocation: {uri: .uri}}}]}]
-    }]}' "$1"
 }
 
 # gate <report.json>...: fail on a High alert whose rule is not set to IGNORE.
