@@ -9,7 +9,7 @@
 ## Version History
 | Date | Status | Author | Reviewer | Change | Commit |
 | --- | --- | --- | --- | --- | --- |
-| 2026-10-20 | Accepted | mikemike | AI as stand-in for S01 | Initial version | pending |
+| 2026-10-20 | Accepted | mikemike | AI as stand-in for S01 | Initial version | [8670ad0] |
 
 ---
 
@@ -69,3 +69,4 @@ Go-with-conditions. Every Mandatory criterion that the change touches passes exc
 [QC-SH-001]: ../../../framework/qc/code/qc-programming-shell.md
 [QC-WF-001]: ../../../framework/qc/code/qc-workflow.md
 [QC-YML-001]: ../../../framework/qc/code/qc-yaml.md
+[8670ad0]: https://github.com/NF-Hotel/DevOps/commit/8670ad067a55f3efd6b83a3393038c5e1c6d46ee
