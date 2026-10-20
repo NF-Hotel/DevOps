@@ -1,7 +1,7 @@
-# CI of NF-Hotel/DevOps (MIL-025 task 4): linters, the script tests, a
-# cross-repository build of the NF Hotel images from an NF-Hotel/NFHotel checkout through
-# the release-images action, without pushing, and the throwaway end-to-end stack of
-# MIL-027 (NFHotel), started from that checkout and checked from its own network.
+# CI of NF-Hotel/DevOps (MIL-025 task 4): linters, the script tests, the host hardening
+# tests of MIL-023, a cross-repository build of the NF Hotel images from an NF-Hotel/NFHotel
+# checkout through the release-images action, without pushing, and the throwaway end-to-end
+# stack of MIL-027 (NFHotel), started from that checkout and checked from its own network.
 #
 # Triggers: pull requests to main, pushes to main, and by hand (with the NFHotel ref to
 #   build).
@@ -68,6 +68,24 @@ jobs:
         env:
           TEST: ${{ matrix.test }}
         run: docker run --rm -v "$PWD:/src:ro" debian:12-slim bash "/src/tests/$TEST"
+
+  host-hardening:
+    name: Host hardening (Debian 13, MIL-023)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test the Docker daemon, patching and evidence scripts
+        run: docker run --rm -v "$PWD:/src:ro" debian:13-slim bash /src/tests/test-host-setup.sh
+      # NET_ADMIN and SYS_ADMIN let the test load nftables rules and make network namespaces
+      # inside its own container; nothing changes on the runner.
+      - name: Test the firewall in network namespaces
+        run: >-
+          docker run --rm --cap-add NET_ADMIN --cap-add SYS_ADMIN --sysctl net.ipv4.ip_forward=1
+          -v "$PWD:/src:ro" debian:13-slim bash /src/tests/test-nftables.sh
 
   nginx:
     name: nginx routes

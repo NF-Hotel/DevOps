@@ -20,6 +20,16 @@ services:
         org.opencontainers.image.revision: ${NFHOTEL_APP_SHA:-unknown}
     restart: unless-stopped
     env_file: ${BENCHMARK_ENV_FILE:-benchmark.env}
+    # Hardening (MIL-023 task 2, CIS-500): the image runs as the user app and needs no
+    # capability. The results are in the volume; marimo and Python write their caches to
+    # /tmp and the home folder, which are tmpfs.
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp, /home/app]
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 256
     # The notebook has Ollama at localhost:11434 built in: forward that to the
     # ollama container, then start the notebook.
     command:
