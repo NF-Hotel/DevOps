@@ -49,7 +49,12 @@ case "${2##*/}" in
 esac
 EOF
 # shellcheck disable=SC2016 # the fake script expands these when it runs, not here
-printf '#!/bin/bash\necho "tailscale $*"; exit ${FAKE_EXIT:-0}\n' >bin/tailscale
+cat >bin/tailscale <<'EOF'
+#!/bin/bash
+echo "tailscale $*"
+[[ "$*" == *" migrate "* ]] && { cat >"${FAKE_STDIN:-/dev/null}"; exit "${FAKE_MIGRATE_EXIT:-0}"; }
+exit "${FAKE_EXIT:-0}"
+EOF
 printf '#!/bin/bash\ncat >/dev/null; exit 0\n' >bin/docker
 chmod +x bin/*
 export PATH="$W/bin:$PATH" GITHUB_REPOSITORY=NF-Hotel/NFHotel GITHUB_SERVER_URL=https://github.com \
@@ -132,6 +137,39 @@ expect 1 "verify refuses a digest with provenance but no SBOM" verify_with "$E" 
 expect 1 "verify refuses a market-analysis digest other than the frozen pin" \
   verify_with "$D" "ghcr.io/nf-hotel/market-analysis@sha256:$D"
 expect 1 "verify refuses a missing digest" verify_with "" "$FROZEN"
+
+# Migrations by CD (MIL-022 task 6): the manifest names the script by its SHA-256, the
+# file must match it, and deploy runs migrate first and deploys only when it succeeded.
+printf 'SELECT 1;\n' >migrations.sql
+M="$(sha256sum migrations.sql | cut -d' ' -f1)"
+manifest_m() {
+  printf '{"sha":"%s","devops_sha":"%s","migrations":"%s","images":{"nfhotel-web":"ghcr.io/nf-hotel/nfhotel-web@sha256:%s","nfhotel-api":"ghcr.io/nf-hotel/nfhotel-api@sha256:%s","market-analysis":"ghcr.io/nf-hotel/market-analysis@sha256:%s","benchmark":"ghcr.io/nf-hotel/benchmark@sha256:%s"}}' \
+    "$APP" "$OPS" "$1" "$D" "$D" "$D" "$D" >release.json
+}
+manifest_m "$M"
+expect 0 "read-manifest accepts a migration script with its hash" step read-manifest
+grep -qx "migrations=$M" out && ok "read-manifest writes the hash of the migration script" || ko "migrations output"
+manifest_m "$(printf 'f%.0s' $(seq 64))"
+expect 1 "read-manifest refuses a migration script with another hash" step read-manifest
+manifest_m "x;id"
+expect 1 "read-manifest refuses a migration hash that is not 64 hex" step read-manifest
+manifest_m "$M"
+mv migrations.sql m.keep
+expect 1 "read-manifest refuses a manifest whose migration script is missing" step read-manifest
+mv m.keep migrations.sql
+manifest "$APP" "$OPS" "ghcr.io/nf-hotel/nfhotel-web@sha256:$D"
+expect 0 "read-manifest accepts a manifest without migrations" step read-manifest
+grep -qx "migrations=" out && ok "no migrations gives an empty hash" || ko "empty migrations output"
+deploy_m() {
+  VM_HOST=nf-hotel SHA="$APP" DEVOPS_SHA="$OPS" WEB=w API=a ANALYSIS=n BENCHMARK=b MIGRATIONS="$M" \
+    FAKE_STDIN="$W/sent.sql" step deploy
+}
+expect 0 "deploy with migrations runs migrate, then deploy" deploy_m
+[[ "$(grep -c '^tailscale ssh' log)" == 2 ]] && head -1 log | grep -q "nfhotel-deploy migrate $M" &&
+  sed -n 2p log | grep -q "nfhotel-deploy deploy $APP" && ok "migrate comes before deploy, with the hash" || ko "order: $(tr '\n' '|' <log)"
+cmp -s migrations.sql "$W/sent.sql" && ok "migrate receives the script on standard input" || ko "script sent"
+FAKE_MIGRATE_EXIT=1 expect 1 "a failed migrate fails the step" deploy_m
+grep -q "nfhotel-deploy deploy" log && ko "nothing is deployed after a failed migrate" || ok "nothing is deployed after a failed migrate"
 
 echo "RESULT: $pass passed, $fail failed"
 ((fail == 0))

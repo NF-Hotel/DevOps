@@ -4,7 +4,9 @@
 # --push only when PUSH is 'true', so the action keeps its run block to one command
 # (QC-YML-001 criterion 7). After a push it writes the digest of every built image as
 # the step output <name>-digest, for the attestation steps (MIL-022 task 2); a frozen
-# image gets none, because it was not built here.
+# image gets none, because it was not built here. With a push it also makes the idempotent
+# migration script migrations.sql of the release, whose SHA-256 goes into the manifest
+# (MIL-022 task 6).
 #
 # Env:   APP_PATH, APP_SHA, REGISTRY, PUSH, DEVOPS_SHA   the action inputs
 #        SCAN_DIR                                        the scan folder (see the action)
@@ -19,7 +21,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 args=(--app-dir "${APP_PATH:?}" --sha "${APP_SHA:?}" --devops-sha "${DEVOPS_SHA:?}"
   --registry "${REGISTRY:?}" --scan-dir "${SCAN_DIR:?}")
 if [[ "${PUSH:-false}" == "true" ]]; then
-  args+=(--push --output release.json --summary "${GITHUB_STEP_SUMMARY:-/dev/null}")
+  bash "$ROOT/scripts/make-migration-script.sh" "$APP_PATH" migrations.sql
+  args+=(--push --output release.json --summary "${GITHUB_STEP_SUMMARY:-/dev/null}" --migrations migrations.sql)
 fi
 bash "$ROOT/scripts/build-release-images.sh" "${args[@]}"
 

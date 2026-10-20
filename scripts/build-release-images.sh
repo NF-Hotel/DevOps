@@ -28,7 +28,7 @@
 # Usage: build-release-images.sh --app-dir <NFHotel checkout> [--push] [--registry <host/owner>]
 #                                [--sha <commit>] [--devops-sha <commit>]
 #                                [--output <file>] [--summary <file>]
-#                                [--scan-dir <folder>] [--no-scan]
+#                                [--scan-dir <folder>] [--no-scan] [--migrations <file>]
 #   --push       push the images and write the manifest (changes the registry)
 #   --registry   image prefix (default ghcr.io/nf-hotel)
 #   --app-dir    the NFHotel checkout to build web and api from (its HEAD must be --sha)
@@ -40,6 +40,9 @@
 #   --scan-dir   where the scan writes <name>.trivy.json, .sarif, .spdx.json and, with
 #                --push, <name>.digest (default release-scan)
 #   --no-scan    skip the scan, for a quick local build only (refused with --push)
+#   --migrations the idempotent migration script of the release (make-migration-script.sh);
+#                its SHA-256 goes into the manifest as "migrations", and the CD applies
+#                exactly that script before the deploy (MIL-022 task 6)
 # The caller is logged in to the registry when pushing (docker login ghcr.io).
 # Exit:  0 built, scanned (and pushed); 1 a build, scan, push or digest step failed;
 #        2 usage error
@@ -66,6 +69,7 @@ devops_sha=""
 output="release.json"
 summary=""
 scan_dir="release-scan"
+migrations=""
 scan=1
 push=0
 
@@ -101,6 +105,10 @@ while (($#)); do
       shift
       ;;
     --no-scan) scan=0 ;;
+    --migrations)
+      migrations="${2:?--migrations needs a value}"
+      shift
+      ;;
     -h | --help)
       usage
       exit 0
@@ -126,6 +134,7 @@ export NFHOTEL_APP_DIR="$app_dir" NFHOTEL_APP_SHA="$sha"
 [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || die "the commit '$sha' is not a full SHA"
 [[ "$registry" =~ ^[a-z0-9./_-]+$ ]] || die "the registry '$registry' must be lower case"
 docker compose version >/dev/null 2>&1 || die "the docker compose plugin is missing"
+[[ -z "$migrations" || -s "$migrations" ]] || die "the migration script '$migrations' is missing or empty"
 ((scan || push == 0)) || die "--no-scan cannot be used with --push: every released image is scanned"
 if ((scan)); then
   mkdir -p "$scan_dir"
@@ -209,6 +218,9 @@ fi
   echo "{"
   echo "  \"sha\": \"$sha\","
   echo "  \"devops_sha\": \"$devops_sha\","
+  if [[ -n "$migrations" ]]; then
+    echo "  \"migrations\": \"$(sha256sum "$migrations" | cut -d' ' -f1)\","
+  fi
   echo "  \"images\": {"
   i=0
   for entry in "${IMAGES[@]}"; do

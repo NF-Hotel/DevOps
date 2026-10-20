@@ -25,11 +25,16 @@ services:
     # password lives in one file only. scripts/deploy-services.sh exports the
     # POSTGRES_* values; when running compose by hand, export them first.
     # Use no ; or quote in the password (openssl rand -hex 24 is safe).
+    # Once the roles of ADR-0011 exist, scripts/deploy-services.sh sets
+    # NFHOTEL_API_CONNECTION_STRING to the login of nfhotel_app and turns the migrations at
+    # start off, because the CD applies them (MIL-022 task 6). Without it, the superuser of
+    # postgres.env is used and the API migrates at start, as before.
     environment:
-      ConnectionStrings__HotelDatabase: "Host=postgres;Port=5432;\
+      ConnectionStrings__HotelDatabase: "${NFHOTEL_API_CONNECTION_STRING:-Host=postgres;Port=5432;\
         Database=${POSTGRES_DB:-nfhotel};\
         Username=${POSTGRES_USER:-nfhotel};\
-        Password=${POSTGRES_PASSWORD:?set it, it comes from deploy/postgres/postgres.env}"
+        Password=${POSTGRES_PASSWORD:?set it, it comes from deploy/postgres/postgres.env}}"
+      Database__MigrateOnStart: "${NFHOTEL_API_MIGRATE_ON_START:-true}"
     expose:
       - "8080"
     healthcheck:

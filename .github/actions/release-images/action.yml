@@ -1,5 +1,7 @@
 # Build the four NF Hotel images from an NF-Hotel/NFHotel checkout and, with push, push
-# them to GHCR and write the release manifest (ADR-0007, ADR-0012 of NFHotel, MIL-025).
+# them to GHCR and write the release manifest (ADR-0007, ADR-0012 of NFHotel, MIL-025). With
+# push it also writes migrations.sql, the idempotent migration script of the release, which
+# the caller uploads with release.json (MIL-022 task 6).
 # Called by release.yaml of NFHotel, pinned by full commit SHA; that job holds the
 # permissions and the GHCR login. Every built image is scanned with Trivy before any
 # push and the release stops on a blocking finding (MIL-022 task 1). Changes outside the
@@ -50,6 +52,13 @@ runs:
         ACTION_REF: ${{ github.action_ref }}
         DEVOPS_SHA_INPUT: ${{ inputs.devops-sha }}
       run: bash "$GITHUB_ACTION_PATH/../../../scripts/action-ref.sh"
+
+    # The migration script of a release is made with the SDK of the checkout (MIL-022 task 6).
+    - name: Install the .NET SDK of the checkout
+      if: inputs.push == 'true'
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+      with:
+        global-json-file: ${{ inputs.app-path }}/global.json
 
     - name: Build and scan the images
       id: build

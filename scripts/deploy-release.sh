@@ -21,6 +21,14 @@
 #   6. smoke test: port 80 answers 301 and HTTPS answers 200 on the VM
 #   7. on success, append the release to the release log; on failure, deploy the
 #      previous release from the log again and exit 1
+# migrate:  apply the idempotent migration script of a release to the database, before
+#           its deploy (MIL-022 task 6, ADR-0008, ADR-0011). The script comes on standard
+#           input and must have the SHA-256 given as the argument, the one recorded in
+#           the release manifest. A fresh backup runs first, then psql applies the script
+#           in the PostgreSQL container as nfhotel_migrator, which sets the role
+#           nfhotel_owner, with the URL of /etc/nfhotel/secrets/nfhotel-migrator-database.env.
+#           Each migration of the script commits on its own and is skipped when its id is
+#           already in the history, so a rerun changes nothing.
 # rollback: deploy the release before the latest one in the log again.
 # status:   print the release log.
 # deploy and rollback are the explicit commands that change the VM; status and a
@@ -28,6 +36,7 @@
 # because it is installed alone (scripts/lib/common.sh is not beside it).
 #
 # Usage: deploy-release.sh deploy <app-sha> <devops-sha> <web> <api> <analysis> <benchmark>
+#        deploy-release.sh migrate <sha256 of the script> < migrations.sql
 #        deploy-release.sh rollback
 #        deploy-release.sh status
 #   <app-sha>    the 40-character NF-Hotel/NFHotel commit of the release (recorded)
@@ -36,7 +45,8 @@
 #                nfhotel-web, nfhotel-api, market-analysis, benchmark
 # Env:   NFHOTEL_DIR (default /opt/nfhotel), NFHOTEL_USER (default nfhotel),
 #        NFHOTEL_STATE (default /var/lib/nfhotel-deploy), NFHOTEL_REGISTRY
-#        (default ghcr.io/nf-hotel)
+#        (default ghcr.io/nf-hotel), NFHOTEL_SECRETS (default /etc/nfhotel/secrets),
+#        NFHOTEL_BACKUP_COMMAND (default /usr/local/sbin/nfhotel-backup; for the tests)
 # Exit:  0 deployed (or rolled back on request); 1 the deploy failed (a rollback was
 #        tried); 2 usage error or an argument that does not match its pattern
 # Needs: bash 4+, git, curl, flock, sudo, docker with the compose plugin
@@ -48,7 +58,9 @@ app_user="${NFHOTEL_USER:-nfhotel}"
 state_dir="${NFHOTEL_STATE:-/var/lib/nfhotel-deploy}"
 registry="${NFHOTEL_REGISTRY:-ghcr.io/nf-hotel}"
 release_log="$state_dir/releases.log"
-readonly BACKUP_COMMAND=/usr/local/sbin/nfhotel-backup
+secrets_dir="${NFHOTEL_SECRETS:-/etc/nfhotel/secrets}"
+# Overridable for the tests only: sudo resets the environment of the deploy user.
+readonly BACKUP_COMMAND="${NFHOTEL_BACKUP_COMMAND:-/usr/local/sbin/nfhotel-backup}"
 readonly NAMES=(nfhotel-web nfhotel-api market-analysis benchmark)
 
 die() {
@@ -70,7 +82,9 @@ as_app() {
   if [[ "$(id -un)" == "$app_user" ]]; then
     (cd "$app_dir" && "$@")
   else
-    sudo -u "$app_user" -H bash -c 'cd "$1" && shift && "$@"' _ "$app_dir" "$@"
+    # The database settings of the API pass in the environment, never as an argument.
+    sudo -u "$app_user" -H --preserve-env=NFHOTEL_API_CONNECTION_STRING,NFHOTEL_API_MIGRATE_ON_START \
+      bash -c 'cd "$1" && shift && "$@"' _ "$app_dir" "$@"
   fi
 }
 
@@ -124,10 +138,28 @@ apply() {
   as_app git checkout --quiet --detach "$sha" || return 1
   [[ "$(as_app git rev-parse HEAD)" == "$sha" ]] || return 1
 
+  api_database_settings || return 1
   echo "==> starting the services from the release images (no build)"
   as_app env NFHOTEL_WEB_IMAGE="$3" NFHOTEL_API_IMAGE="$4" MARKET_ANALYSIS_IMAGE="$5" BENCHMARK_IMAGE="$6" \
     bash scripts/deploy-services.sh --no-build || return 1
   smoke_test
+}
+
+# api_database_settings: once the roles of ADR-0011 exist, the API connects as nfhotel_app
+# with the login in the secrets folder (root only, 0600), and it no longer migrates at
+# start, because the migrate command applies the migrations (MIL-022 task 6). Before that,
+# the API keeps the superuser of postgres.env and its migrations at start.
+api_database_settings() {
+  local file="$secrets_dir/nfhotel-api-database.env" value
+  unset NFHOTEL_API_CONNECTION_STRING NFHOTEL_API_MIGRATE_ON_START
+  [[ -f "$file" ]] || return 0
+  value="$(sed -n 's/^ConnectionStrings__HotelDatabase=//p' "$file" | tail -n 1)"
+  [[ "$value" == *"Username=nfhotel_app;"* ]] || {
+    echo "error: $file holds no connection string for nfhotel_app" >&2
+    return 1
+  }
+  export NFHOTEL_API_CONNECTION_STRING="$value" NFHOTEL_API_MIGRATE_ON_START=false
+  echo "==> the API connects as nfhotel_app and does not migrate at start (ADR-0011)"
 }
 
 # previous_release <n>: the n-th latest successful release line (1 = latest).
@@ -186,6 +218,38 @@ deploy() {
   exit 1
 }
 
+# migrate <sha256>: see the header. Nothing is applied unless the script on standard
+# input has exactly that hash and the backup has run.
+migrate() {
+  local want="${1:-}" got pg
+  [[ "$want" =~ ^[0-9a-f]{64}$ ]] || refuse "the migration script hash must be 64 lower-case hex characters"
+  [[ -f "$secrets_dir/nfhotel-migrator-database.env" ]] ||
+    die "$secrets_dir/nfhotel-migrator-database.env is missing; run scripts/prepare-database-roles.sh (ADR-0011)"
+  script="$(mktemp)"
+  trap 'rm -f "$script"' EXIT
+  cat >"$script"
+  got="$(sha256sum "$script" | cut -d' ' -f1)"
+  [[ "$got" == "$want" ]] || refuse "the migration script has SHA-256 $got, not $want"
+  [[ -s "$script" ]] || refuse "the migration script is empty"
+  pg="$(docker ps --quiet --filter label=com.docker.compose.project=nfhotel-postgres \
+    --filter label=com.docker.compose.service=postgres | head -n 1)"
+  [[ -n "$pg" ]] || die "the PostgreSQL container of the project nfhotel-postgres is not running"
+
+  if [[ -x "$BACKUP_COMMAND" ]]; then
+    echo "==> backing up the database before the migrations"
+    "$BACKUP_COMMAND" --apply || die "the backup failed; no migration was applied"
+  else
+    die "$BACKUP_COMMAND is not installed; migrations run only after a fresh backup (ADR-0008)"
+  fi
+
+  echo "==> applying the migration script $want as nfhotel_migrator"
+  # shellcheck disable=SC2016 # expanded by the shell inside the container
+  docker exec -i --env-file "$secrets_dir/nfhotel-migrator-database.env" "$pg" \
+    sh -c 'psql "$NFHOTEL_MIGRATOR_URL" --quiet --no-psqlrc -v ON_ERROR_STOP=1' <"$script" ||
+    die "the migration script failed; the backup above holds the state before it"
+  echo "==> migrations applied"
+}
+
 rollback() {
   local target
   target="$(previous_release 2 || true)"
@@ -213,6 +277,10 @@ main() {
     deploy)
       shift
       deploy "$@"
+      ;;
+    migrate)
+      shift
+      migrate "$@"
       ;;
     rollback) rollback ;;
     status) cat "$release_log" 2>/dev/null || echo "no release deployed yet" ;;

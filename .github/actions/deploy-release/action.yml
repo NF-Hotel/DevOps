@@ -96,6 +96,7 @@ runs:
         API: ${{ steps.release.outputs.nfhotel_api }}
         ANALYSIS: ${{ steps.release.outputs.market_analysis }}
         BENCHMARK: ${{ steps.release.outputs.benchmark }}
+        MIGRATIONS: ${{ steps.release.outputs.migrations }}
       run: bash "$GITHUB_ACTION_PATH/../../../scripts/cd-steps.sh" deploy
 
     - name: Write the deployment summary

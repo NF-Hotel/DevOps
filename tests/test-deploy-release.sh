@@ -39,6 +39,7 @@ git clone -q "$W/origin.git" "$W/src" 2>/dev/null
 mkdir -p "$W/src/scripts" "$W/src/deploy/nginx" "$W/bin"
 cat >"$W/src/scripts/deploy-services.sh" <<EOF
 echo "web=\$NFHOTEL_WEB_IMAGE" >>"$W/calls"
+echo "api-db=\${NFHOTEL_API_CONNECTION_STRING:-superuser} migrate=\${NFHOTEL_API_MIGRATE_ON_START:-true}" >>"$W/calls"
 if [[ "\$NFHOTEL_WEB_IMAGE" == *bbbbbbbb* ]]; then echo bad >"$W/health"; else echo good >"$W/health"; fi
 EOF
 git -C "$W/src" add -A && git -C "$W/src" commit -qm a
@@ -57,6 +58,19 @@ cat >"$W/bin/curl" <<EOF
 for a in "\$@"; do case "\$a" in http://*) echo 301; exit 0 ;; https://*) echo 200; exit 0 ;; esac; done
 EOF
 chmod +x "$W/bin/curl"
+# docker for the migrate command: ps finds the PostgreSQL container, exec records the
+# call and the script it reads; the script "fail" makes psql fail.
+cat >"$W/bin/docker" <<EOF
+#!/bin/bash
+case "\$1" in
+  ps) echo pg123 ;;
+  exec) echo "exec \$*" >>"$W/order"; cat >"$W/applied"; ! grep -qx fail "$W/applied" ;;
+esac
+EOF
+printf '#!/bin/bash\necho backup >>"%s/order"\n' "$W" >"$W/bin/backup"
+chmod +x "$W/bin/docker" "$W/bin/backup"
+mkdir -p "$W/secrets"
+echo 'NFHOTEL_MIGRATOR_URL=postgresql://nfhotel_migrator:x@postgres:5432/nfhotel' >"$W/secrets/nfhotel-migrator-database.env"
 
 APP="$(printf 'c%.0s' $(seq 40))"
 D="sha256:$(printf 'a%.0s' $(seq 64))"
@@ -68,7 +82,8 @@ run() {
   local dir="$1"
   shift
   PATH="$W/bin:$PATH" NFHOTEL_USER=root NFHOTEL_STATE="$W/state-$(basename "$dir")" NFHOTEL_DIR="$dir" \
-    bash /src/scripts/deploy-release.sh "$@" >"$W/out" 2>&1
+  NFHOTEL_SECRETS="${SECRETS:-$W/secrets}" NFHOTEL_BACKUP_COMMAND="${BACKUP:-$W/bin/backup}" \
+    bash /src/scripts/deploy-release.sh "$@" <"${STDIN:-/dev/null}" >"$W/out" 2>&1
 }
 expect_code() {
   local want="$1" desc="$2"
@@ -118,6 +133,42 @@ wait
   run "$W/other" deploy $(good "$A")
   [[ $? == 1 ]] && grep -q "not of NF-Hotel/DevOps" "$W/out" && ok "refuses a checkout of another repository" ||
     ko "other repository: $(head -1 "$W/out")"
+}
+
+# migrate (MIL-022 task 6): the script must have the given hash; a backup comes first;
+# psql runs in the PostgreSQL container with the migrator settings file.
+printf 'CREATE TABLE IF NOT EXISTS t (id int);\n' >"$W/m.sql"
+H="$(sha256sum "$W/m.sql" | cut -d' ' -f1)"
+OTHER="$(printf 'f%.0s' $(seq 64))"
+STDIN="$W/m.sql" expect_code 2 "migrate refuses a hash that is not 64 hex characters" migrate abc
+STDIN="$W/m.sql" expect_code 2 "migrate refuses a script with another hash" migrate "$OTHER"
+: >"$W/order"
+STDIN="$W/m.sql" expect_code 0 "migrate applies the script with the right hash" migrate "$H"
+[[ "$(head -1 "$W/order")" == backup ]] && grep -q "exec exec -i --env-file $W/secrets/nfhotel-migrator-database.env pg123" "$W/order" &&
+  ok "migrate backs up first, then runs psql with the migrator settings" || ko "migrate order: $(tr '\n' '|' <"$W/order")"
+cmp -s "$W/m.sql" "$W/applied" && ok "migrate passes the script unchanged" || ko "applied script"
+BACKUP="$W/none" STDIN="$W/m.sql" expect_code 1 "migrate refuses without the backup command" migrate "$H"
+SECRETS="$W/none" STDIN="$W/m.sql" expect_code 1 "migrate refuses without the migrator settings" migrate "$H"
+echo fail >"$W/f.sql"
+STDIN="$W/f.sql" expect_code 1 "a failing script fails migrate" migrate "$(sha256sum "$W/f.sql" | cut -d' ' -f1)"
+
+# The API database settings (ADR-0011): superuser and migrations at start without the
+# roles; nfhotel_app and no migrations at start once its settings file exists.
+# shellcheck disable=SC2046
+{
+  : >"$W/calls"
+  expect_code 0 "deploys release A before the roles exist" deploy $(good "$A")
+  grep -q "api-db=superuser migrate=true" "$W/calls" && ok "without the roles the API keeps the superuser" || ko "no roles: $(tail -1 "$W/calls")"
+  echo 'ConnectionStrings__HotelDatabase=Host=postgres;Port=5432;Database=nfhotel;Username=nfhotel_app;Password=p' \
+    >"$W/secrets/nfhotel-api-database.env"
+  : >"$W/calls"
+  expect_code 0 "deploys release A with the roles" deploy $(good "$A")
+  grep -q "api-db=Host=postgres;Port=5432;Database=nfhotel;Username=nfhotel_app;Password=p migrate=false" "$W/calls" &&
+    ok "with the roles the API connects as nfhotel_app and does not migrate at start" || ko "roles: $(tail -1 "$W/calls")"
+  grep -q "Password=p" "$W/out" && ko "the password is not printed" || ok "the password is not printed"
+  echo 'ConnectionStrings__HotelDatabase=Host=postgres;Username=nfhotel;Password=p' >"$W/secrets/nfhotel-api-database.env"
+  expect_code 1 "refuses an API settings file that is not for nfhotel_app" deploy $(good "$A")
+  rm -f "$W/secrets/nfhotel-api-database.env"
 }
 
 echo "RESULT: $pass passed, $fail failed"

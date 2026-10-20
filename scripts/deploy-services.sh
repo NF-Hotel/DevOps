@@ -136,7 +136,9 @@ done
 
 # The API builds its connection string from postgres.env, and the web service takes the API
 # token from nfhotel-api.env (docker-compose.yml of each), so each secret is written in one
-# file only. Export those values for compose. They are read, never printed.
+# file only. Export those values for compose. They are read, never printed. When the deploy
+# command passes NFHOTEL_API_CONNECTION_STRING (the login of nfhotel_app, ADR-0011) in the
+# environment, compose uses it instead of the superuser (deploy/nfhotel-api).
 for s in "${ordered[@]}"; do
   if [[ "$s" == "api" ]]; then
     pg_env="$(dir_of postgres)/$(env_of postgres)"

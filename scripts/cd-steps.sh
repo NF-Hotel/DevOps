@@ -8,7 +8,9 @@
 #   check-run      the run in RUN_ID must be a successful "NF Hotel Release" run of main
 #                  in this repository; writes id=<run> to GITHUB_OUTPUT
 #   read-manifest  read release.json, check every field against a strict pattern and
-#                  write sha and one digest per image to GITHUB_OUTPUT
+#                  write sha and one digest per image to GITHUB_OUTPUT; when the manifest
+#                  names a migration script, migrations.sql must be beside it with that
+#                  SHA-256, which is written as migrations
 #   verify         check the build provenance and the SBOM attestation of every image
 #                  digest with gh attestation verify, signed by the release workflow of
 #                  this repository (MIL-022 task 3); a frozen image (ADR-0500) is
@@ -16,7 +18,9 @@
 #                  both attestations stops the deploy before the tailnet is joined
 #   deploy         run the deploy command on the VM over Tailscale SSH; changes the VM,
 #                  so it is only called after the approval and, for a manual run, only
-#                  when APPLY is true
+#                  when APPLY is true. With MIGRATIONS set it first sends migrations.sql
+#                  to the migrate command (backup, then the script as nfhotel_migrator),
+#                  and deploys only when that succeeded (MIL-022 task 6)
 #   summary        append the audit record of the run to GITHUB_STEP_SUMMARY
 #
 # Environment (set by the workflow through env:, never interpolated):
@@ -28,6 +32,7 @@
 #   VM_HOST      the tailnet name of the VM, for deploy
 #   SHA DEVOPS_SHA WEB API ANALYSIS BENCHMARK   the checked manifest fields, for verify,
 #                deploy and summary
+#   MIGRATIONS   the checked SHA-256 of migrations.sql, for deploy (empty: none)
 #   OUTCOME      the job status, for summary
 #
 # Usage: cd-steps.sh check-run|read-manifest|verify|deploy|summary
@@ -42,6 +47,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly RELEASE_WORKFLOW="NF Hotel Release"
 readonly IMAGE_NAMES=(nfhotel-web nfhotel-api market-analysis benchmark)
 readonly MANIFEST=release.json
+readonly MIGRATIONS_FILE=migrations.sql
 readonly FENCE='```'
 readonly OWNER=NF-Hotel
 readonly SBOM_PREDICATE=https://spdx.dev/Document/v2.3
@@ -71,6 +77,15 @@ read_manifest() {
   ops_sha="$(jq -r '.devops_sha' "$MANIFEST")"
   [[ "$ops_sha" =~ ^[0-9a-f]{40}$ ]] || fail "bad DevOps commit in $MANIFEST"
   echo "devops_sha=$ops_sha" >>"$GITHUB_OUTPUT"
+  local migrations
+  migrations="$(jq -r '.migrations // ""' "$MANIFEST")"
+  if [[ -n "$migrations" ]]; then
+    [[ "$migrations" =~ ^[0-9a-f]{64}$ ]] || fail "bad migration script hash in $MANIFEST"
+    [[ -f "$MIGRATIONS_FILE" ]] || fail "$MANIFEST names a migration script, but $MIGRATIONS_FILE is missing"
+    [[ "$(sha256sum "$MIGRATIONS_FILE" | cut -d' ' -f1)" == "$migrations" ]] ||
+      fail "$MIGRATIONS_FILE does not have the SHA-256 of $MANIFEST"
+  fi
+  echo "migrations=$migrations" >>"$GITHUB_OUTPUT"
   for name in "${IMAGE_NAMES[@]}"; do
     ref="$(jq -r --arg n "$name" '.images[$n]' "$MANIFEST")"
     [[ "$ref" =~ ^ghcr\.io/nf-hotel/${name}@sha256:[0-9a-f]{64}$ ]] || fail "bad digest for $name in $MANIFEST"
@@ -117,6 +132,12 @@ verify() {
 deploy() {
   [[ "${VM_HOST:-}" =~ ^[a-z0-9.-]+$ ]] || fail "set the environment variable NFHOTEL_VM_HOST of production"
   local status=0
+  if [[ -n "${MIGRATIONS:-}" ]]; then
+    [[ "$MIGRATIONS" =~ ^[0-9a-f]{64}$ ]] || fail "bad migration script hash"
+    tailscale ssh "deploy@$VM_HOST" sudo -n /usr/local/sbin/nfhotel-deploy migrate "$MIGRATIONS" \
+      <"$MIGRATIONS_FILE" 2>&1 | tee migrate.log || status=$?
+    ((status == 0)) || fail "the migrations on $VM_HOST failed (exit $status); nothing was deployed"
+  fi
   tailscale ssh "deploy@$VM_HOST" \
     sudo -n /usr/local/sbin/nfhotel-deploy deploy "$SHA" "$DEVOPS_SHA" "$WEB" "$API" "$ANALYSIS" "$BENCHMARK" \
     2>&1 | tee deploy.log || status=$?
