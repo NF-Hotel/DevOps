@@ -71,6 +71,9 @@ NOW=2026-09-05T00:00:00Z bash "$DORA" report --month 2026-09 --data "$DATA" --js
 [[ "$(bash "$DORA" job-fields <"$DATA/cd-job.log")" == '{"release_run":202,"apply":true}' ]] &&
   ok "a CD job log gives the first release run and apply input" ||
   ko "a CD job log gives the first release run and apply input"
+[[ "$(sed 's/$/\r/' "$DATA/cd-job.log" | bash "$DORA" job-fields)" == '{"release_run":202,"apply":true}' ]] &&
+  ok "a job log with CRLF line ends gives the same fields" ||
+  ko "a job log with CRLF line ends gives the same fields"
 [[ "$(echo "no inputs here" | bash "$DORA" job-fields)" == '{"release_run":null,"apply":null}' ]] &&
   ok "a log without the inputs gives nulls" || ko "a log without the inputs gives nulls"
 

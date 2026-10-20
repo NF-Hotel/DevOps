@@ -24,7 +24,7 @@
 - **Scope:** full review of the new files, delta review of `ci.yaml` and the registry.
 - **Language and domain:** n/a (technical types).
 - **Mode:** autonomous, not independent (reviewer is `AI as stand-in for S01`).
-- **Tools:** `tests/lint.sh` (actionlint 1.7.7 with shellcheck, shellcheck 0.11.0, shfmt 3.14.1, yamllint 1.35.1); `tests/test-dora-metrics.sh` in Debian 12 (24 passed); `scripts/dora-metrics.sh fetch` and `report` against NF-Hotel/NFHotel for October 2026; OpenSSF Scorecard v5.5.0 (the version that scorecard-action v2.4.4 runs), built from the Go module proxy, against `main` of both repositories.
+- **Tools:** `tests/lint.sh` (actionlint 1.7.7 with shellcheck, shellcheck 0.11.0, shfmt 3.14.1, yamllint 1.35.1); `tests/test-dora-metrics.sh` in Debian 12 (25 passed); `scripts/dora-metrics.sh fetch` and `report` against NF-Hotel/NFHotel for October 2026; OpenSSF Scorecard v5.5.0 (the version that scorecard-action v2.4.4 runs), built from the Go module proxy, against `main` of both repositories.
 
 ## Checklist Results
 
