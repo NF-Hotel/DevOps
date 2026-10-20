@@ -103,10 +103,30 @@ The first commit of the migration pull request holds the copies byte for byte. T
 | `src/`, `tests/` (except below), `Dockerfile`, `Dockerfile.api`, `NFHotel.sln`, EF Core migrations | Application (ADR-0012 decision 1); the Dockerfiles are shared and reviewed by DevOps through CODEOWNERS | — |
 | `.github/workflows/ci.yaml` (PR #22) | The application CI and the required checks of NFHotel | — |
 | `.github/workflows/release.yaml`, `cd.yaml` (PR #117) | Entry points: triggers, permissions, environment and OIDC must stay in NFHotel. Their steps moved here as `.github/actions/release-images` and `.github/actions/deploy-release` | — |
-| `tests/NFHotel.Proxmox.Tests` | A .NET project in `NFHotel.sln`, built with the solution's `Directory.Build.props` and `global.json` | MIL-025 task 7, with a solution of its own here |
 | `docs/business-case.md`, `docs/project-plan.md`, `docs/stakeholder-analysis.md`, `docs/sqa/reviews/rc-088-business-case-cicd.md` | The project baseline; objectives 23 to 25 point here | — |
 | `docs/adr/adr-0003`, `adr-0006`, `docs/milestones/mil-001` to `mil-004`, `mil-017`, and their review records | Accepted and completed on NFHotel `main`; kept where they were accepted, and referred to from here | — |
 | `SECURITY.md`, `.github/CODEOWNERS` (PR #117) | Repository-specific; this repository has its own | — |
+
+## Copied in MIL-025 task 7
+
+Copied byte for byte from NFHotel `main` at [`7c6f348`](https://github.com/NF-Hotel/NFHotel/commit/7c6f3483a426753535d18e683f7f75616add1566), before NFHotel removed them (NF-Hotel/NFHotel#159):
+
+| Source path (NFHotel) | Path here | Last commit | SHA-256 (first 16) |
+| --- | --- | --- | --- |
+| `scripts/resolve-model-name.sh` | `scripts/resolve-model-name.sh` | [b195b69](https://github.com/NF-Hotel/NFHotel/commit/b195b69) | `70efd1a3d4028d96` |
+| `scripts/test-resolve-model-name.sh` | `tests/test-resolve-model-name.sh` (usage line changed for the path) | [b195b69](https://github.com/NF-Hotel/NFHotel/commit/b195b69) | `d64c096250a7cc93` |
+| `tests/NFHotel.Proxmox.Tests/.dockerignore` | same path | [b690b57](https://github.com/NF-Hotel/NFHotel/commit/b690b57) | `6c5082c7e6de3e35` |
+| `tests/NFHotel.Proxmox.Tests/Dockerfile` | same path | [f1d6a94](https://github.com/NF-Hotel/NFHotel/commit/f1d6a94) | `846d0a10c50ef435` |
+| `tests/NFHotel.Proxmox.Tests/LiveFactAttribute.cs` | same path | [52ba3a1](https://github.com/NF-Hotel/NFHotel/commit/52ba3a1) | `050454b28bb7ee5a` |
+| `tests/NFHotel.Proxmox.Tests/NFHotel.Proxmox.Tests.csproj` | same path | [8d09ad8](https://github.com/NF-Hotel/NFHotel/commit/8d09ad8) | `506266503b1f642f` |
+| `tests/NFHotel.Proxmox.Tests/ProxmoxApiTests.cs` | same path | [52ba3a1](https://github.com/NF-Hotel/NFHotel/commit/52ba3a1) | `2ddad2112a504aaf` |
+| `tests/NFHotel.Proxmox.Tests/PveClient.cs` | same path | [52ba3a1](https://github.com/NF-Hotel/NFHotel/commit/52ba3a1) | `ca97a124dd095d57` |
+| `tests/NFHotel.Proxmox.Tests/PveSettings.cs` | same path | [52ba3a1](https://github.com/NF-Hotel/NFHotel/commit/52ba3a1) | `574d016eb4555f0b` |
+| `tests/NFHotel.Proxmox.Tests/PveSettingsTests.cs` | same path | [52ba3a1](https://github.com/NF-Hotel/NFHotel/commit/52ba3a1) | `db2963d192bcdece` |
+| `tests/NFHotel.Proxmox.Tests/ReadOnlyHandler.cs` | same path | [52ba3a1](https://github.com/NF-Hotel/NFHotel/commit/52ba3a1) | `6fa2c191fb6b8aac` |
+| `tests/NFHotel.Proxmox.Tests/ReadOnlyHandlerTests.cs` | same path | [52ba3a1](https://github.com/NF-Hotel/NFHotel/commit/52ba3a1) | `9a8bd1fec60f46ca` |
+
+The Proxmox tests have a solution of their own here, `tests/NFHotel.Proxmox.Tests/NFHotel.Proxmox.Tests.sln`, with a `global.json` beside it (the SDK and the test runner that `NFHotel.sln` gave them). The project sets every build property itself, so it needs no `Directory.Build.props`.
 
 ## Changes after the copy
 
@@ -123,6 +143,8 @@ Further changes for the boundary of ADR-0012, each in its own commit:
 - the wiki page CI-CD (the flow across the two repositories);
 - the new actions, scripts and tests, reviewed in RC-501.
 
+The changes that NFHotel `main` made to its own copies after `0f69a52` (MIL-020, MIL-026, ADR-0014, the nginx and Ollama fixes, the timeouts) were merged here three ways in MIL-025 task 7, keeping the changes made here (image variables, digest pins, the frozen market-analysis image, the login of `nfhotel_app`, the optional API route). The benchmark image follows the new benchmark API service of notebook-benchmark `409693d`, still built by the Dockerfile here with locked, hashed dependencies and without pip.
+
 ## Copies left in NFHotel
 
-The infrastructure files on NFHotel `main` stay there until the first deploy from this repository is verified. They are then removed by a reviewed pull request (MIL-025 task 7). Until then, **edit them here only**.
+None after NF-Hotel/NFHotel#159 (MIL-025 task 7): the first deploy from this repository was verified (CD run 39407807571, DevOps `24d979e`), NFHotel's changes to its copies were merged here, and NFHotel removed `deploy/`, the infrastructure scripts, `pve.env.example`, `deploy.env.example` and `tests/NFHotel.Proxmox.Tests`. NFHotel keeps `scripts/dev-up.sh` and `dev-up.ps1`, which run the deploy of a DevOps checkout beside it.

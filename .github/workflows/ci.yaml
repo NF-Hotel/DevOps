@@ -1,7 +1,8 @@
-# CI of NF-Hotel/DevOps (MIL-025 task 4): linters, the script tests, a
-# cross-repository build of the NF Hotel images from an NF-Hotel/NFHotel checkout through
-# the release-images action, without pushing, and the throwaway end-to-end stack of
-# MIL-027 (NFHotel), started from that checkout and checked from its own network.
+# CI of NF-Hotel/DevOps (MIL-025 task 4): linters, the script tests, the Proxmox tests
+# without a server (MIL-025 task 7), a cross-repository build of the NF Hotel images from
+# an NF-Hotel/NFHotel checkout through the release-images action, without pushing, and
+# the throwaway end-to-end stack of MIL-027 (NFHotel), started from that checkout and
+# checked from its own network.
 #
 # Triggers: pull requests to main, pushes to main, and by hand (with the NFHotel ref to
 #   build).
@@ -82,6 +83,26 @@ jobs:
           persist-credentials: false
       - name: Test the routes with and without the optional API route
         run: bash tests/test-nginx.sh
+
+  proxmox-tests:
+    name: Proxmox tests (live tests skip)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+        with:
+          global-json-file: tests/NFHotel.Proxmox.Tests/global.json
+      # No PVE_HOST here, so the tests that need the real Proxmox VE skip; the settings,
+      # the read-only handler and the client run. scripts/run-proxmox-tests.sh runs all
+      # of them against a throwaway Proxmox VE, which needs /dev/kvm.
+      - name: Run the tests
+        working-directory: tests/NFHotel.Proxmox.Tests
+        run: dotnet test --solution NFHotel.Proxmox.Tests.sln
 
   release-build:
     name: Cross-repository release build (no push)
