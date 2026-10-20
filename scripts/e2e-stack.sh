@@ -145,9 +145,6 @@ ANALYSIS_UPSTREAM_PORT=2718
 ANALYSIS_API_SERVER_NAME=analysis-api.localhost
 ANALYSIS_API_UPSTREAM_HOST=market-analysis-api
 ANALYSIS_API_UPSTREAM_PORT=8000
-BENCHMARK_SERVER_NAME=benchmark.localhost
-BENCHMARK_UPSTREAM_HOST=benchmark
-BENCHMARK_UPSTREAM_PORT=2719
 EOF
 umask 022
 bash "$ROOT/scripts/make-dev-certificate.sh" "$settings/tls" nginx >/dev/null

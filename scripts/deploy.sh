@@ -14,7 +14,7 @@
 #        api        the database API: the only service with the database login and the key
 #        web        NFHotel, the only service served to the internet; it calls the API
 #        analysis   market analysis, loopback of the VM only
-#        benchmark  LLM benchmark, loopback of the VM only
+#        benchmark  the benchmark service (API), internal networks only
 #        nginx      reverse proxy in front of them
 #
 # Development: a Proxmox VE in a local Docker container (PVE_CONTAINER=<name> in
@@ -34,7 +34,7 @@
 #   --down      stop and remove the named services (data volumes are kept)
 # Reach the internal services from your machine with an ssh tunnel, for example
 #   ssh -L 8081:127.0.0.1:8081 nfhotel@<vm address>
-#   then open analysis.localhost:8081 or benchmark.localhost:8081 in a browser
+#   then open analysis.localhost:8081 or analysis-api.localhost:8081 in a browser
 # Exit:  0 deployed; 1 a step failed; 2 usage error
 # Needs: bash 4+, ssh, tar, and key login to the Proxmox node and to the VM user
 
@@ -213,6 +213,9 @@ vm "docker compose version >/dev/null 2>&1" || die "Docker is not ready in the V
 if ((local_code)); then
   echo "==> copying the working tree to $remote_dir"
   vm "sudo mkdir -p $remote_dir && sudo chown $VM_USER $remote_dir"
+  # The templates and snippets of the proxy are read as whole folders by nginx, and a file that was removed from the
+  # repository must not stay in the VM, so these two folders are replaced and not merged.
+  vm "rm -rf $remote_dir/deploy/nginx/templates $remote_dir/deploy/nginx/snippets"
   (cd "$root" && git ls-files -co --exclude-standard -z |
     tar --null --exclude=framework -T - -cf -) | vm "tar -xf - -C $remote_dir" ||
     die "could not copy the working tree to the VM"
@@ -234,4 +237,4 @@ vm "cd $remote_dir && bash scripts/deploy-services.sh ${passthrough[*]:-}" || di
 echo
 echo "Done. VM $VM_ID at $VM_IP."
 echo "Public:   port 80 of $VM_IP serves NFHotel web, through nginx"
-echo "Internal: ssh -L 8081:127.0.0.1:8081 $VM_USER@$VM_IP, then analysis.localhost:8081 and benchmark.localhost:8081"
+echo "Internal: ssh -L 8081:127.0.0.1:8081 $VM_USER@$VM_IP, then analysis.localhost:8081 and analysis-api.localhost:8081"

@@ -1,10 +1,10 @@
-# Image for NF-Hotel/notebook-benchmark (the local LLM hotel benchmark, a marimo
-# notebook). The repository has no Dockerfile, so this one fetches it at a pinned
-# commit; change BENCHMARK_REF to upgrade. Build context is this folder.
-# The notebook calls Ollama at localhost:11434 and cannot be configured, so the
-# container forwards that port to the ollama container (see docker-compose.yml).
-# The notebook finds data/ and output/ relative to the source tree, so the
-# repository stays at /opt/benchmark and is put on PYTHONPATH.
+# Image of the benchmark service of NF-Hotel/notebook-benchmark (ADR-0004, MIL-019, MIL-020 of
+# NFHotel): the HTTP API that starts runs against Ollama and delivers the result to the NFHotel
+# API. That repository has a Dockerfile of its own, but it installs with pip from version
+# ranges; this one fetches the source at a pinned commit and installs locked, hashed
+# dependencies instead. Change BENCHMARK_REF to upgrade. Build context is this folder.
+# The package is not installed: its source stays at /opt/benchmark/src on PYTHONPATH, so no
+# build backend runs. The notebook and its libraries (extra "notebook") are not installed.
 # requirements.lock pins every dependency with hashes for the pinned commit. After
 # changing BENCHMARK_REF, regenerate it from that commit's pyproject.toml:
 #   uv pip compile pyproject.toml --generate-hashes --python-platform linux \
@@ -19,14 +19,14 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends git ca-certificates socat \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN git init /opt/benchmark \
+    && apt-get install --yes --no-install-recommends git ca-certificates \
+    && git init /opt/benchmark \
     && git -C /opt/benchmark remote add origin "$BENCHMARK_REPO" \
     && git -C /opt/benchmark fetch --depth 1 origin "$BENCHMARK_REF" \
     && git -C /opt/benchmark checkout FETCH_HEAD \
-    && rm -rf /opt/benchmark/.git /opt/benchmark/framework
+    && rm -rf /opt/benchmark/.git /opt/benchmark/framework \
+    && apt-get purge --yes --auto-remove git \
+    && rm -rf /var/lib/apt/lists/*
 
 # Locked, hashed dependencies; no setup script runs at build time. pip is removed
 # afterwards: the service never installs anything, and the copies of urllib3, msgpack
@@ -35,10 +35,14 @@ COPY requirements.lock /tmp/requirements.lock
 RUN pip install --require-hashes --only-binary :all: -r /tmp/requirements.lock \
     && rm /tmp/requirements.lock \
     && pip uninstall --yes pip
-ENV PYTHONPATH=/opt/benchmark/src
+ENV PYTHONPATH=/opt/benchmark/src \
+    NFBENCH_DATA_DIR=/data \
+    NFBENCH_DATASET=/opt/benchmark/data/example/synthetic_hotel_bookings.csv
 
-RUN useradd --create-home app \
-    && mkdir -p /opt/benchmark/output \
-    && chown -R app /opt/benchmark/output
+RUN useradd --create-home --uid 10001 app \
+    && mkdir -p /data \
+    && chown app /data
 USER app
 WORKDIR /opt/benchmark
+EXPOSE 8000
+CMD ["python", "-m", "uvicorn", "--factory", "nfbench.bootstrap:create_service_app", "--host", "0.0.0.0", "--port", "8000"]

@@ -21,6 +21,8 @@ cat >"$work/bin/docker" <<FAKE
 #!/bin/bash
 case "\$*" in
   *" up "*) echo "\$PWD api_token=\${API_TOKEN-} pg=\${POSTGRES_PASSWORD-}" >>"$work/calls" ;;
+  # deploy-services.sh waits for a healthy database and API before web.
+  inspect\ -f*) echo "true healthy" ;;
 esac
 exit 0
 FAKE
