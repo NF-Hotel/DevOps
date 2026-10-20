@@ -5,6 +5,12 @@
 # main after green CI; the VM only pulls the images by digest and never builds them.
 # Without --push it only builds and tags, which changes nothing outside this machine.
 #
+# Every built image is scanned with Trivy before anything is pushed (MIL-022 task 1,
+# scripts/scan-image.sh): a critical finding, or a high one with a fix, stops the
+# release. The scan also writes the SBOM and the SARIF report of each image, and with
+# --push the digest, into the scan folder, for the attestations of the release-images
+# action (MIL-022 task 2).
+#
 # Images, each tagged sha-<commit> and identified by its digest after the push:
 #   nfhotel-web       deploy/nfhotel-web      (root Dockerfile)
 #   nfhotel-api       deploy/nfhotel-api      (Dockerfile.api)
@@ -22,6 +28,7 @@
 # Usage: build-release-images.sh --app-dir <NFHotel checkout> [--push] [--registry <host/owner>]
 #                                [--sha <commit>] [--devops-sha <commit>]
 #                                [--output <file>] [--summary <file>]
+#                                [--scan-dir <folder>] [--no-scan]
 #   --push       push the images and write the manifest (changes the registry)
 #   --registry   image prefix (default ghcr.io/nf-hotel)
 #   --app-dir    the NFHotel checkout to build web and api from (its HEAD must be --sha)
@@ -30,9 +37,13 @@
 #                (required with --push; default: HEAD of this repository)
 #   --output     the release manifest to write with --push (default release.json)
 #   --summary    a Markdown file to append the manifest to (the job summary in CI)
+#   --scan-dir   where the scan writes <name>.trivy.json, .sarif, .spdx.json and, with
+#                --push, <name>.digest (default release-scan)
+#   --no-scan    skip the scan, for a quick local build only (refused with --push)
 # The caller is logged in to the registry when pushing (docker login ghcr.io).
-# Exit:  0 built (and pushed); 1 a build, push or digest step failed; 2 usage error
-# Needs: bash 4+, docker with the compose plugin, git
+# Exit:  0 built, scanned (and pushed); 1 a build, scan, push or digest step failed;
+#        2 usage error
+# Needs: bash 4+, docker with the compose plugin, git, jq
 
 set -euo pipefail
 
@@ -54,6 +65,8 @@ app_dir=""
 devops_sha=""
 output="release.json"
 summary=""
+scan_dir="release-scan"
+scan=1
 push=0
 
 while (($#)); do
@@ -83,6 +96,11 @@ while (($#)); do
       summary="${2:?--summary needs a value}"
       shift
       ;;
+    --scan-dir)
+      scan_dir="${2:?--scan-dir needs a value}"
+      shift
+      ;;
+    --no-scan) scan=0 ;;
     -h | --help)
       usage
       exit 0
@@ -108,6 +126,11 @@ export NFHOTEL_APP_DIR="$app_dir" NFHOTEL_APP_SHA="$sha"
 [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || die "the commit '$sha' is not a full SHA"
 [[ "$registry" =~ ^[a-z0-9./_-]+$ ]] || die "the registry '$registry' must be lower case"
 docker compose version >/dev/null 2>&1 || die "the docker compose plugin is missing"
+((scan || push == 0)) || die "--no-scan cannot be used with --push: every released image is scanned"
+if ((scan)); then
+  mkdir -p "$scan_dir"
+  scan_dir="$(cd "$scan_dir" && pwd)"
+fi
 
 settings="$(mktemp -d)"
 trap 'rm -rf "$settings"' EXIT
@@ -116,7 +139,10 @@ trap 'rm -rf "$settings"' EXIT
 export POSTGRES_PASSWORD="release-build"
 export API_TOKEN="release-build"
 
-digests=()
+# Build and scan every image first, and push only when all of them passed, so a failed
+# scan leaves nothing new in the registry. The manifest lists the images in IMAGES order.
+declare -A digests=()
+to_push=()
 built=0
 for entry in "${IMAGES[@]}"; do
   read -r name folder image_var env_var service <<<"$entry"
@@ -131,7 +157,10 @@ for entry in "${IMAGES[@]}"; do
     echo "==> $name is frozen at $frozen (not built)"
     if ((push)); then
       docker buildx imagetools inspect "$frozen" >/dev/null || die "the frozen image $frozen is not in the registry"
-      digests+=("\"$name\": \"$frozen\"")
+      digests[$name]="$frozen"
+      # Its findings are reported but cannot be fixed by a rebuild (ADR-0500).
+      docker pull -q "$frozen" >/dev/null || die "pulling the frozen image $frozen failed"
+      bash "$ROOT/scripts/scan-image.sh" --report-only "$frozen" "$name" "$scan_dir"
     fi
     continue
   fi
@@ -149,20 +178,30 @@ for entry in "${IMAGES[@]}"; do
   (cd "$dir" && docker compose build --pull "$service") || die "building $name failed"
   docker image inspect "$tag" >/dev/null || die "no image $tag after the build"
   built=$((built + 1))
+  if ((scan)); then
+    bash "$ROOT/scripts/scan-image.sh" "$tag" "$name" "$scan_dir" || die "$name failed the container scan; nothing is pushed"
+  fi
+  to_push+=("$name $folder $service $tag")
+done
 
-  if ((push)); then
+if ((push)); then
+  for entry in "${to_push[@]}"; do
+    read -r name folder service tag <<<"$entry"
     echo "==> pushing $tag"
-    (cd "$dir" && docker compose push "$service") || die "pushing $name failed"
+    (cd "$ROOT/deploy/$folder" && docker compose push "$service") || die "pushing $name failed"
     digest="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$tag" |
       grep -m1 "^$registry/$name@sha256:")" || die "no digest for $name after the push"
     [[ "$digest" =~ ^[a-z0-9./_-]+@sha256:[0-9a-f]{64}$ ]] || die "unexpected digest '$digest'"
-    digests+=("\"$name\": \"$digest\"")
+    digests[$name]="$digest"
+    echo "${digest#*@}" >"$scan_dir/$name.digest"
     echo "    $digest"
-  fi
-done
+  done
+fi
 
 ((push)) || {
-  echo "==> built $built of ${#IMAGES[@]} images (the others are frozen); nothing pushed (give --push to publish)"
+  note="(not scanned)"
+  ((scan == 0)) || note="and scanned"
+  echo "==> built $note $built of ${#IMAGES[@]} images (the others are frozen); nothing pushed (give --push to publish)"
   exit 0
 }
 
@@ -171,11 +210,13 @@ done
   echo "  \"sha\": \"$sha\","
   echo "  \"devops_sha\": \"$devops_sha\","
   echo "  \"images\": {"
-  last=$((${#digests[@]} - 1))
-  for i in "${!digests[@]}"; do
+  i=0
+  for entry in "${IMAGES[@]}"; do
+    read -r name _ <<<"$entry"
+    i=$((i + 1))
     sep=","
-    ((i == last)) && sep=""
-    echo "    ${digests[$i]}$sep"
+    ((i == ${#IMAGES[@]})) && sep=""
+    echo "    \"$name\": \"${digests[$name]:?no digest for $name}\"$sep"
   done
   echo "  }"
   echo "}"

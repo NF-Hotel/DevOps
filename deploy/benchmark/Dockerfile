@@ -9,7 +9,8 @@
 # changing BENCHMARK_REF, regenerate it from that commit's pyproject.toml:
 #   uv pip compile pyproject.toml --generate-hashes --python-platform linux \
 #     --python-version 3.13 --no-header -o requirements.lock
-FROM python:3.13-slim
+# Pinned by digest (MIL-022 task 4); Dependabot proposes the next one.
+FROM python:3.13-slim@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f
 
 ARG BENCHMARK_REPO
 ARG BENCHMARK_REF
@@ -27,10 +28,13 @@ RUN git init /opt/benchmark \
     && git -C /opt/benchmark checkout FETCH_HEAD \
     && rm -rf /opt/benchmark/.git /opt/benchmark/framework
 
-# Locked, hashed dependencies; no setup script runs at build time.
+# Locked, hashed dependencies; no setup script runs at build time. pip is removed
+# afterwards: the service never installs anything, and the copies of urllib3, msgpack
+# and setuptools that pip vendors carry fixable high findings (MIL-022 task 1).
 COPY requirements.lock /tmp/requirements.lock
 RUN pip install --require-hashes --only-binary :all: -r /tmp/requirements.lock \
-    && rm /tmp/requirements.lock
+    && rm /tmp/requirements.lock \
+    && pip uninstall --yes pip
 ENV PYTHONPATH=/opt/benchmark/src
 
 RUN useradd --create-home app \

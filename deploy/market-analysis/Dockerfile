@@ -1,7 +1,8 @@
 # Image for NF-Hotel/Notebook_Market_Analysis (MIL-004 task 4). The repository has
 # no Dockerfile, so this one fetches it at a pinned commit; change ANALYSIS_REF to
 # upgrade. Build context is this folder.
-FROM python:3.13-slim
+# Pinned by digest (MIL-022 task 4); Dependabot proposes the next one.
+FROM python:3.13-slim@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f
 
 ARG ANALYSIS_REPO
 ARG ANALYSIS_REF
