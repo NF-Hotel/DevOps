@@ -63,7 +63,9 @@ cat >"$W/report.json" <<'JSON'
    "instances": [{"method": "POST", "uri": "https://nginx/book"}]}]}]}
 JSON
 sarif="$(bash "$SCAN" --to-sarif "$W/report.json")"
-[[ "$(jq -r '[.runs[0].results[].locations[0].physicalLocation.artifactLocation.uri] | join(",")' <<<"$sarif")" ==   "dast/admin/revenue,dast/index,dast/book" ]] && ok "SARIF locations are repository paths under dast/" || ko "SARIF locations are repository paths under dast/"
+uris="$(jq -r '[.runs[0].results[].locations[0].physicalLocation.artifactLocation.uri] | join(",")' <<<"$sarif")"
+[[ "$uris" == "dast/admin/revenue,dast/index,dast/book" ]] &&
+  ok "SARIF locations are repository paths under dast/" || ko "SARIF locations are repository paths under dast/"
 [[ "$(jq -r '[.runs[0].results[].level] | join(",")' <<<"$sarif")" == "warning,warning,error" ]] &&
   ok "SARIF levels follow the ZAP risk" || ko "SARIF levels follow the ZAP risk"
 [[ "$(jq -r '.runs[0].results[0].message.text' <<<"$sarif")" == *"GET https://nginx/admin/revenue?x=1" ]] &&
