@@ -1,7 +1,8 @@
 # Deploy a release to the NF Hotel VM (ADR-0007, ADR-0012 of NFHotel, MIL-025). Called by
 # cd.yaml of NFHotel, pinned by full commit SHA, in a job that runs in the environment
 # production, so the approval comes before any credential, and that holds
-# id-token: write for Tailscale. With apply: 'true' it changes the VM: it joins the tailnet
+# id-token: write for Tailscale, and attestations: read and packages: read for the check
+# of the attestations (MIL-022 task 3). With apply: 'true' it changes the VM: it joins the tailnet
 # as tag:ci and runs the deploy command over Tailscale SSH. Otherwise it only checks the
 # release and writes the summary (a dry run). The logic is in scripts/cd-steps.sh of this
 # repository, at the same commit.
@@ -29,7 +30,7 @@ inputs:
     required: false
     default: ""
   github-token:
-    description: The job token, to read the release run and its artifact
+    description: The job token, to read the release run, its artifact and the attestations
     required: true
 
 runs:
@@ -61,6 +62,18 @@ runs:
       id: release
       shell: bash
       run: bash "$GITHUB_ACTION_PATH/../../../scripts/cd-steps.sh" read-manifest
+
+    # Before any credential for the VM: a digest without a valid build provenance and SBOM
+    # attestation of the release workflow is refused (MIL-022 task 3), in a dry run too.
+    - name: Verify the attestations of the images
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        WEB: ${{ steps.release.outputs.nfhotel_web }}
+        API: ${{ steps.release.outputs.nfhotel_api }}
+        ANALYSIS: ${{ steps.release.outputs.market_analysis }}
+        BENCHMARK: ${{ steps.release.outputs.benchmark }}
+      run: bash "$GITHUB_ACTION_PATH/../../../scripts/cd-steps.sh" verify
 
     - name: Join the tailnet
       if: ${{ inputs.apply == 'true' }}

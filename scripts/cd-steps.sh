@@ -9,6 +9,11 @@
 #                  in this repository; writes id=<run> to GITHUB_OUTPUT
 #   read-manifest  read release.json, check every field against a strict pattern and
 #                  write sha and one digest per image to GITHUB_OUTPUT
+#   verify         check the build provenance and the SBOM attestation of every image
+#                  digest with gh attestation verify, signed by the release workflow of
+#                  this repository (MIL-022 task 3); a frozen image (ADR-0500) is
+#                  accepted only by its exact pinned digest. Any other digest without
+#                  both attestations stops the deploy before the tailnet is joined
 #   deploy         run the deploy command on the VM over Tailscale SSH; changes the VM,
 #                  so it is only called after the approval and, for a manual run, only
 #                  when APPLY is true
@@ -17,16 +22,17 @@
 # Environment (set by the workflow through env:, never interpolated):
 #   GITHUB_REPOSITORY, GITHUB_OUTPUT, GITHUB_STEP_SUMMARY, GITHUB_SERVER_URL,
 #   GITHUB_ACTOR, GITHUB_EVENT_NAME   set by the runner
-#   GH_TOKEN     the job token, for check-run
+#   GH_TOKEN     the job token, for check-run and verify (attestations: read,
+#                packages: read)
 #   RUN_ID       the release run, for check-run and summary
 #   VM_HOST      the tailnet name of the VM, for deploy
-#   SHA DEVOPS_SHA WEB API ANALYSIS BENCHMARK   the checked manifest fields, for deploy
-#                and summary
+#   SHA DEVOPS_SHA WEB API ANALYSIS BENCHMARK   the checked manifest fields, for verify,
+#                deploy and summary
 #   OUTCOME      the job status, for summary
 #
-# Usage: cd-steps.sh check-run|read-manifest|deploy|summary
+# Usage: cd-steps.sh check-run|read-manifest|verify|deploy|summary
 # Exit:  0 the step passed; 1 the step failed (with an ::error:: line); 2 usage error
-# Needs: bash 4+, gh, jq, tailscale (for deploy)
+# Needs: bash 4+, gh, jq, docker (for verify), tailscale (for deploy)
 
 set -euo pipefail
 
@@ -37,6 +43,8 @@ readonly RELEASE_WORKFLOW="NF Hotel Release"
 readonly IMAGE_NAMES=(nfhotel-web nfhotel-api market-analysis benchmark)
 readonly MANIFEST=release.json
 readonly FENCE='```'
+readonly OWNER=NF-Hotel
+readonly SBOM_PREDICATE=https://spdx.dev/Document/v2.3
 
 fail() {
   echo "::error::$*"
@@ -70,6 +78,42 @@ read_manifest() {
   done
 }
 
+verify() {
+  local name var ref frozen logged_in=""
+  [[ -n "${GITHUB_REPOSITORY:-}" ]] || fail "GITHUB_REPOSITORY is not set"
+  local signer="$GITHUB_REPOSITORY/.github/workflows/release.yaml"
+  for name in "${IMAGE_NAMES[@]}"; do
+    case "$name" in
+      nfhotel-web) var=WEB ;;
+      nfhotel-api) var=API ;;
+      market-analysis) var=ANALYSIS ;;
+      benchmark) var=BENCHMARK ;;
+    esac
+    ref="${!var:-}"
+    [[ "$ref" =~ ^ghcr\.io/nf-hotel/${name}@sha256:[0-9a-f]{64}$ ]] || fail "no checked digest for $name"
+    frozen="$ROOT/deploy/$name/frozen-image"
+    if [[ -f "$frozen" ]]; then
+      [[ "$ref" == "$(tr -d '[:space:]' <"$frozen")" ]] ||
+        fail "$name is frozen (ADR-0500), but the release names $ref, not the pinned digest"
+      echo "==> $name is frozen at its pinned digest (ADR-0500): not built by a release, so no attestation"
+      continue
+    fi
+    if [[ -z "${logged_in:-}" ]]; then
+      # The packages are private: gh reads the digest through the Docker credentials.
+      docker login ghcr.io --username "${GITHUB_ACTOR:-x}" --password-stdin <<<"${GH_TOKEN:?GH_TOKEN is not set}" >/dev/null ||
+        fail "cannot log in to ghcr.io with the job token (packages: read)"
+      logged_in=1
+    fi
+    echo "==> verifying $ref"
+    gh attestation verify "oci://$ref" --owner "$OWNER" --signer-workflow "$signer" >/dev/null ||
+      fail "$name has no valid build provenance from $signer: $ref"
+    gh attestation verify "oci://$ref" --owner "$OWNER" --signer-workflow "$signer" \
+      --predicate-type "$SBOM_PREDICATE" >/dev/null ||
+      fail "$name has no valid SBOM attestation from $signer: $ref"
+    echo "    build provenance and SBOM verified"
+  done
+}
+
 deploy() {
   [[ "${VM_HOST:-}" =~ ^[a-z0-9.-]+$ ]] || fail "set the environment variable NFHOTEL_VM_HOST of production"
   local status=0
@@ -99,6 +143,7 @@ summary() {
 case "${1:-}" in
   check-run) check_run ;;
   read-manifest) read_manifest ;;
+  verify) verify ;;
   deploy) deploy ;;
   summary) summary ;;
   -h | --help) usage ;;

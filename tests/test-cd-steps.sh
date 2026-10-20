@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Tests of scripts/cd-steps.sh and scripts/action-ref.sh (MIL-021 task 6, ADR-0012 of
-# NFHotel): the release run check, the manifest check, the deploy call, the summary, and
+# NFHotel): the release run check, the manifest check, the check of the attestations
+# (MIL-022 task 3), the deploy call, the summary, and
 # the refusal of an action that is not pinned by a full commit SHA. Fakes stand in for gh
 # and tailscale.
 #
@@ -31,6 +32,14 @@ ko() {
 
 cat >bin/gh <<'EOF'
 #!/bin/bash
+# gh attestation verify oci://<ref> ...: digest b...b has no attestation at all, e...e has
+# a build provenance but no SBOM; everything else verifies.
+if [[ "$1" == attestation ]]; then
+  [[ "$3" == *sha256:bbbb* ]] && exit 1
+  [[ "$3" == *sha256:eeee* && "$*" == *--predicate-type* ]] && exit 1
+  echo "$*" >>"${FAKE_GH_LOG:-/dev/null}"
+  exit 0
+fi
 case "${2##*/}" in
   1) echo '{"name":"NF Hotel Release","head_branch":"main","conclusion":"success","repository":{"full_name":"NF-Hotel/NFHotel"}}' ;;
   2) echo '{"name":"NF Hotel Release","head_branch":"feature","conclusion":"success","repository":{"full_name":"NF-Hotel/NFHotel"}}' ;;
@@ -41,6 +50,7 @@ esac
 EOF
 # shellcheck disable=SC2016 # the fake script expands these when it runs, not here
 printf '#!/bin/bash\necho "tailscale $*"; exit ${FAKE_EXIT:-0}\n' >bin/tailscale
+printf '#!/bin/bash\ncat >/dev/null; exit 0\n' >bin/docker
 chmod +x bin/*
 export PATH="$W/bin:$PATH" GITHUB_REPOSITORY=NF-Hotel/NFHotel GITHUB_SERVER_URL=https://github.com \
   GITHUB_ACTOR=tester GITHUB_EVENT_NAME=workflow_run
@@ -102,6 +112,26 @@ ACTION_REF="" GITHUB_REPOSITORY=NF-Hotel/NFHotel expect 1 "action-ref refuses a 
 ACTION_REF="" GITHUB_REPOSITORY=NF-Hotel/DevOps DEVOPS_SHA_INPUT="$OPS" expect 0 "action-ref accepts a local action in NF-Hotel/DevOps with devops-sha" ref
 ACTION_REF="" GITHUB_REPOSITORY=NF-Hotel/DevOps DEVOPS_SHA_INPUT="" expect 1 "action-ref needs devops-sha for a local action" ref
 ACTION_REF="$OPS" GITHUB_REPOSITORY=NF-Hotel/NFHotel DEVOPS_SHA_INPUT="$APP" expect 1 "action-ref refuses a devops-sha that differs from the pin" ref
+
+# verify (MIL-022 task 3): both attestations per built image, the frozen one by its pin.
+FROZEN="$(tr -d '[:space:]' </src/deploy/market-analysis/frozen-image)"
+B="$(printf 'b%.0s' $(seq 64))"
+E="$(printf 'e%.0s' $(seq 64))"
+verify_with() {
+  WEB="ghcr.io/nf-hotel/nfhotel-web@sha256:$1" API="ghcr.io/nf-hotel/nfhotel-api@sha256:$D" \
+    ANALYSIS="$2" BENCHMARK="ghcr.io/nf-hotel/benchmark@sha256:$D" GH_TOKEN=t FAKE_GH_LOG="$W/gh.log" step verify
+}
+: >gh.log
+expect 0 "verify accepts attested digests and the frozen pin" verify_with "$D" "$FROZEN"
+[[ "$(grep -c -- '--signer-workflow NF-Hotel/NFHotel/.github/workflows/release.yaml' gh.log)" == 6 ]] &&
+  ok "verify checks provenance and SBOM of the three built images, signed by the release workflow" ||
+  ko "verify calls ($(wc -l <gh.log))"
+grep -q "market-analysis" gh.log && ko "verify does not query the frozen image" || ok "verify does not query the frozen image"
+expect 1 "verify refuses a digest without any attestation" verify_with "$B" "$FROZEN"
+expect 1 "verify refuses a digest with provenance but no SBOM" verify_with "$E" "$FROZEN"
+expect 1 "verify refuses a market-analysis digest other than the frozen pin" \
+  verify_with "$D" "ghcr.io/nf-hotel/market-analysis@sha256:$D"
+expect 1 "verify refuses a missing digest" verify_with "" "$FROZEN"
 
 echo "RESULT: $pass passed, $fail failed"
 ((fail == 0))
