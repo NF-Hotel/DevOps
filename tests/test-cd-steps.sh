@@ -9,6 +9,8 @@
 # Exit:  0 every check passed; 1 a check failed
 # Needs: Debian 12 (apt-get, jq)
 
+# shellcheck disable=SC2015 # ok and ko always return 0, so `test && ok || ko` runs
+# exactly one of them; the short form keeps each check on one line.
 set -uo pipefail
 
 apt-get -qq update >/dev/null && apt-get -qq install -y jq >/dev/null 2>&1
@@ -37,6 +39,7 @@ case "${2##*/}" in
   *) exit 1 ;;
 esac
 EOF
+# shellcheck disable=SC2016 # the fake script expands these when it runs, not here
 printf '#!/bin/bash\necho "tailscale $*"; exit ${FAKE_EXIT:-0}\n' >bin/tailscale
 chmod +x bin/*
 export PATH="$W/bin:$PATH" GITHUB_REPOSITORY=NF-Hotel/NFHotel GITHUB_SERVER_URL=https://github.com \

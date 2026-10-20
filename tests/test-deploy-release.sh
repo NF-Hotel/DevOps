@@ -9,6 +9,8 @@
 # Exit:  0 every check passed; 1 a check failed
 # Needs: Debian 12 (apt-get, git, flock)
 
+# shellcheck disable=SC2015 # ok and ko always return 0, so `test && ok || ko` runs
+# exactly one of them; the short form keeps each check on one line.
 set -uo pipefail
 
 apt-get -qq update >/dev/null && apt-get -qq install -y git >/dev/null 2>&1
@@ -78,13 +80,13 @@ expect_code() {
 
 # shellcheck disable=SC2046 # the release fields are split on purpose
 {
-  expect_code 2 "refuses a short NFHotel commit" deploy abc "$A" $R/nfhotel-web@$D $R/nfhotel-api@$D $R/market-analysis@$D $R/benchmark@$D
-  expect_code 2 "refuses a short DevOps commit" deploy "$APP" main $R/nfhotel-web@$D $R/nfhotel-api@$D $R/market-analysis@$D $R/benchmark@$D
-  expect_code 2 "refuses the images in the wrong order" deploy "$APP" "$A" $R/nfhotel-api@$D $R/nfhotel-web@$D $R/market-analysis@$D $R/benchmark@$D
-  expect_code 2 "refuses shell text in a digest" deploy "$APP" "$A" "$R/nfhotel-web@$D;id" $R/nfhotel-api@$D $R/market-analysis@$D $R/benchmark@$D
-  expect_code 2 "refuses another registry" deploy "$APP" "$A" evil.io/nf-hotel/nfhotel-web@$D $R/nfhotel-api@$D $R/market-analysis@$D $R/benchmark@$D
-  expect_code 2 "refuses a dot used as a wildcard" deploy "$APP" "$A" ghcrXio/nf-hotel/nfhotel-web@$D $R/nfhotel-api@$D $R/market-analysis@$D $R/benchmark@$D
-  expect_code 2 "refuses three digests" deploy "$APP" "$A" $R/nfhotel-web@$D $R/nfhotel-api@$D $R/market-analysis@$D
+  expect_code 2 "refuses a short NFHotel commit" deploy abc "$A" "$R/nfhotel-web@$D" "$R/nfhotel-api@$D" "$R/market-analysis@$D" "$R/benchmark@$D"
+  expect_code 2 "refuses a short DevOps commit" deploy "$APP" main "$R/nfhotel-web@$D" "$R/nfhotel-api@$D" "$R/market-analysis@$D" "$R/benchmark@$D"
+  expect_code 2 "refuses the images in the wrong order" deploy "$APP" "$A" "$R/nfhotel-api@$D" "$R/nfhotel-web@$D" "$R/market-analysis@$D" "$R/benchmark@$D"
+  expect_code 2 "refuses shell text in a digest" deploy "$APP" "$A" "$R/nfhotel-web@$D;id" "$R/nfhotel-api@$D" "$R/market-analysis@$D" "$R/benchmark@$D"
+  expect_code 2 "refuses another registry" deploy "$APP" "$A" "evil.io/nf-hotel/nfhotel-web@$D" "$R/nfhotel-api@$D" "$R/market-analysis@$D" "$R/benchmark@$D"
+  expect_code 2 "refuses a dot used as a wildcard" deploy "$APP" "$A" "ghcrXio/nf-hotel/nfhotel-web@$D" "$R/nfhotel-api@$D" "$R/market-analysis@$D" "$R/benchmark@$D"
+  expect_code 2 "refuses three digests" deploy "$APP" "$A" "$R/nfhotel-web@$D" "$R/nfhotel-api@$D" "$R/market-analysis@$D"
   expect_code 2 "refuses an unknown command" install
 
   expect_code 0 "deploys release A" deploy $(good "$A")

@@ -10,6 +10,8 @@
 # Exit:  0 every check passed; 1 a check failed
 # Needs: Debian 12 (apt-get)
 
+# shellcheck disable=SC2015 # ok and ko always return 0, so `test && ok || ko` runs
+# exactly one of them; the short form keeps each check on one line.
 set -uo pipefail
 
 apt-get -qq update >/dev/null
@@ -67,7 +69,7 @@ rsync --rsh "$RSH" nfhotel-backup@127.0.0.1:/nfhotel-daily-x.dump.age /tmp/back 
 shell="$($RSH nfhotel-backup@127.0.0.1 id 2>&1)"
 [[ "$shell" == *"does not run rsync"* ]] && ok "a shell is refused" || ko "shell: $shell"
 rsync -a --rsh "$RSH" /tmp/nfhotel-daily-x.dump.age "nfhotel-backup@127.0.0.1:/../" >/dev/null 2>&1
-ls /var/lib | grep -q nfhotel-daily && ko "escaped the folder" || ok "an escape out of the folder is refused"
+[[ -e /var/lib/nfhotel-daily-x.dump.age ]] && ko "escaped the folder" || ok "an escape out of the folder is refused"
 
 echo "RESULT: $pass passed, $fail failed"
 ((fail == 0))

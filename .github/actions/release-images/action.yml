@@ -23,7 +23,7 @@ inputs:
     required: false
     default: "false"
   devops-sha:
-    description: The commit of NF-Hotel/DevOps; only for this repository's own CI, where the action is local
+    description: The NF-Hotel/DevOps commit; only for its own CI, where the action is local
     required: false
     default: ""
 

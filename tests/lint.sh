@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run every linter of this repository in containers at pinned versions (QC-SH-001,
 # QC-YML-001, QC-WF-001): actionlint (with shellcheck) on the workflows and actions,
-# shellcheck and shfmt on the shell scripts, yamllint on the YAML files. The same command
+# the shell scripts through shellcheck and shfmt, yamllint on the YAML files. The same command
 # runs in CI and on a developer machine.
 #
 # Usage: lint.sh
