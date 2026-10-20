@@ -9,7 +9,7 @@
 ## Version History
 | Date | Status | Author | Reviewer | Change | Commit |
 | --- | --- | --- | --- | --- | --- |
-| 2026-10-20 | Accepted | mikemike | AI as stand-in for S03 | Initial version | pending |
+| 2026-10-20 | Accepted | mikemike | AI as stand-in for S03 | Initial version | [095666a] |
 
 ---
 
@@ -51,3 +51,4 @@ Go for the restore procedure and this backup. MIL-021 task 7 stays open for the 
 
 [MIL-021]: ../../milestones/mil-021-secure-cicd-foundation.md
 [ADR-0008]: ../../adr/adr-0008-database-migration-and-backup.md
+[095666a]: https://github.com/NF-Hotel/DevOps/commit/095666a7cfff99037c4a602ab46a6d12d590c6e3
