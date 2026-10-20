@@ -22,7 +22,7 @@
 - **Checklists used:** [QC-SH-001], [QC-WF-001], [QC-YML-001].
 - **Scope:** full review of the new files.
 - **Language and domain:** n/a (technical type).
-- **Mode:** autonomous, not independent (reviewer is `AI as stand-in for S01`). MIL-027 lives in NF-Hotel/NFHotel and was accepted there after RC-104.
+- **Mode:** autonomous, not independent (reviewer is `AI as stand-in for S01`). MIL-027 lives in NF-Hotel/NFHotel and was accepted there after RC-122.
 - **Tools:** `tests/lint.sh` (actionlint 1.7.7, shellcheck 0.11.0, shfmt 3.14.1, yamllint 1.35.1); `tests/test-dast-rules.sh` in Debian 12. A local run against NFHotel `main` plus the end-to-end project: the stack, `check-e2e-stack.sh`, the end-to-end tests and the ZAP baseline.
 
 ## Checklist Results
