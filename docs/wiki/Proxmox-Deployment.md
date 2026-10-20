@@ -84,14 +84,19 @@ bash scripts/deploy.sh
 | Option | Effect |
 | --- | --- |
 | `--dry-run` | print the Proxmox commands that create the VM and stop |
+| `--local` | ship this working tree and an NFHotel working tree instead of cloning them (unpushed work) |
+| `--app-dir <path>` | the NFHotel checkout that `--local` ships (default `../NFHotel` beside this repository) |
 | `--skip-vm` | deploy to the existing VM, do not create or start it |
 | `--no-build` | reuse existing images |
 | `--down` | stop and remove the containers; data volumes are kept |
 | `postgres`, `ollama`, `api`, `web`, `analysis`, `benchmark`, `nginx` | deploy only the named services |
 
 The script is safe to run again. It finds the VM by name, waits for its address, ssh, cloud-init
-and Docker, updates the repository in `/opt/nfhotel` inside the VM, copies the git-ignored
-settings files over ssh, and runs `scripts/deploy-services.sh` there.
+and Docker, updates this repository in `/opt/nfhotel` and the NFHotel application in
+`/opt/nfhotel-app` inside the VM (`REPO_URL`, `REPO_REF`, `APP_REPO_URL` and `APP_REF` in
+`deploy.env`), copies the git-ignored settings files over ssh, and runs
+`scripts/deploy-services.sh` there, which builds web and api from `/opt/nfhotel-app`. The
+production VM is deployed by the CD from released images instead (CI-CD).
 
 ## Environment, database and API
 

@@ -6,7 +6,8 @@
 #   1. find the VM by name on the Proxmox node, or create it (Debian + Docker,
 #      scripts/create-docker-vm.sh) and start it
 #   2. find the VM's address, wait for ssh, cloud-init and Docker
-#   3. clone or update the repository inside the VM and copy over the git-ignored
+#   3. clone or update this repository (/opt/nfhotel) and the NFHotel application
+#      (/opt/nfhotel-app, ADR-0012) inside the VM and copy over the git-ignored
 #      settings files (deploy/*/*.env and market-analysis.toml)
 #   4. run scripts/deploy-services.sh in the VM:
 #        postgres   internal network only, no published port
@@ -24,11 +25,14 @@
 # per-service settings files live next to each docker-compose.yml in deploy/
 # (copy the *.example files). Nothing secret is stored in the repository.
 #
-# Usage: deploy.sh [--skip-vm] [--local] [--dry-run] [--no-build] [--down] [service...]
+# Usage: deploy.sh [--skip-vm] [--local [--app-dir <NFHotel checkout>]] [--dry-run] [--no-build]
+#                  [--down] [service...]
 #   service     postgres, ollama, api, web, analysis, benchmark, nginx (default: all seven)
 #   --skip-vm   do not create or start the VM; deploy to the existing one
-#   --local     ship this working tree to the VM (tracked and untracked files, not the
-#               ignored ones) instead of cloning the repository; for unpushed work
+#   --local     ship this working tree and the NFHotel working tree to the VM (tracked and
+#               untracked files, not the ignored ones) instead of cloning them; for unpushed work
+#   --app-dir   the NFHotel checkout that --local ships (default: ../NFHotel beside this
+#               repository); the compose files build web and api from it (NFHOTEL_APP_DIR)
 #   --dry-run   print what step 1 would run on the node and stop
 #   --no-build  start without rebuilding the images
 #   --down      stop and remove the named services (data volumes are kept)
@@ -46,6 +50,7 @@ export MSYS_NO_PATHCONV=1
 skip_vm=0
 local_code=0
 dry_run=0
+app_dir=""
 passthrough=()
 
 die() {
@@ -57,25 +62,42 @@ usage() {
   sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d' | sed 's/^# \{0,1\}//'
 }
 
-for arg in "$@"; do
-  case "$arg" in
+while (($#)); do
+  case "$1" in
     --skip-vm) skip_vm=1 ;;
     --local) local_code=1 ;;
     --dry-run) dry_run=1 ;;
+    --app-dir)
+      [[ $# -ge 2 ]] || {
+        echo "error: --app-dir needs a value" >&2
+        exit 2
+      }
+      app_dir="$2"
+      shift
+      ;;
     --no-build | --down | postgres | ollama | api | web | analysis | benchmark | nginx)
-      passthrough+=("$arg")
+      passthrough+=("$1")
       ;;
     -h | --help)
       usage
       exit 0
       ;;
     *)
-      echo "error: unknown argument: $arg" >&2
+      echo "error: unknown argument: $1" >&2
       usage >&2
       exit 2
       ;;
   esac
+  shift
 done
+if ((local_code)); then
+  app_dir="${app_dir:-$root/../NFHotel}"
+  [[ -d "$app_dir" ]] && app_dir="$(cd "$app_dir" && pwd)"
+  [[ -f "$app_dir/Dockerfile.api" ]] ||
+    die "$app_dir is not an NFHotel checkout; give it with --app-dir"
+elif [[ -n "$app_dir" ]]; then
+  die "--app-dir needs --local"
+fi
 
 settings="$root/deploy.env"
 [[ -f "$settings" ]] || die "$settings is missing; copy deploy.env.example to deploy.env and fill it in"
@@ -98,8 +120,10 @@ VM_SNIPPETS="${VM_SNIPPETS:-local}"
 VM_BRIDGE="${VM_BRIDGE:-vmbr0}"
 VM_IP="${VM_IP:-}"
 VM_USER="nfhotel"
-REPO_URL="${REPO_URL:-https://github.com/NF-Hotel/NFHotel.git}"
+REPO_URL="${REPO_URL:-https://github.com/NF-Hotel/DevOps.git}"
 REPO_REF="${REPO_REF:-main}"
+APP_REPO_URL="${APP_REPO_URL:-https://github.com/NF-Hotel/NFHotel.git}"
+APP_REF="${APP_REF:-main}"
 # With PVE_CONTAINER (a Proxmox VE in a local Docker container) the VM address is
 # only reachable from inside that container, so ssh to the VM goes through it,
 # with a dedicated key pair that this script creates and copies into the container.
@@ -113,6 +137,7 @@ else
 fi
 SSH_KEY_FILE="${SSH_KEY_FILE/#\~/$HOME}"
 remote_dir="/opt/nfhotel"
+remote_app_dir="/opt/nfhotel-app"
 
 ssh_opts=(-o StrictHostKeyChecking=accept-new -o BatchMode=yes -o ConnectTimeout=10)
 # The remote command is meant to expand on this side.
@@ -219,10 +244,22 @@ if ((local_code)); then
   (cd "$root" && git ls-files -co --exclude-standard -z |
     tar --null --exclude=framework -T - -cf -) | vm "tar -xf - -C $remote_dir" ||
     die "could not copy the working tree to the VM"
+  # The application is replaced, not merged: a source file removed from the checkout must not
+  # stay in the build context.
+  echo "==> copying the NFHotel working tree $app_dir to $remote_app_dir"
+  vm "sudo rm -rf $remote_app_dir && sudo mkdir -p $remote_app_dir && sudo chown $VM_USER $remote_app_dir"
+  (cd "$app_dir" && git ls-files -co --exclude-standard -z |
+    tar --null --exclude=framework -T - -cf -) | vm "tar -xf - -C $remote_app_dir" ||
+    die "could not copy the NFHotel working tree to the VM"
 else
+  # fetch_repo <url> <ref> <folder>: clone, or update a clone, at the ref.
+  fetch_repo() {
+    vm "command -v git >/dev/null || sudo apt-get install -y git >/dev/null;       sudo mkdir -p $3 && sudo chown $VM_USER $3;       if [ -d $3/.git ]; then git -C $3 fetch --depth 1 origin $2 && git -C $3 checkout -q FETCH_HEAD;       else git clone --depth 1 --branch $2 $1 $3; fi"
+  }
   echo "==> updating $remote_dir from $REPO_URL ($REPO_REF)"
-  vm "command -v git >/dev/null || sudo apt-get install -y git >/dev/null;       sudo mkdir -p $remote_dir && sudo chown $VM_USER $remote_dir;       if [ -d $remote_dir/.git ]; then git -C $remote_dir fetch --depth 1 origin $REPO_REF && git -C $remote_dir checkout -q FETCH_HEAD;       else git clone --depth 1 --branch $REPO_REF $REPO_URL $remote_dir; fi" ||
-    die "could not fetch the repository in the VM"
+  fetch_repo "$REPO_URL" "$REPO_REF" "$remote_dir" || die "could not fetch the repository in the VM"
+  echo "==> updating $remote_app_dir from $APP_REPO_URL ($APP_REF)"
+  fetch_repo "$APP_REPO_URL" "$APP_REF" "$remote_app_dir" || die "could not fetch the application in the VM"
 fi
 
 echo "==> copying the settings files"
@@ -232,7 +269,8 @@ mapfile -t settings_files < <(cd "$root" && find deploy -type f \( -name '*.env'
 
 # 4. The containers.
 echo "==> deploying the services in the VM"
-vm "cd $remote_dir && bash scripts/deploy-services.sh ${passthrough[*]:-}" || die "deploying the services failed"
+vm "cd $remote_dir && NFHOTEL_APP_DIR=$remote_app_dir bash scripts/deploy-services.sh ${passthrough[*]:-}" ||
+  die "deploying the services failed"
 
 echo
 echo "Done. VM $VM_ID at $VM_IP."
