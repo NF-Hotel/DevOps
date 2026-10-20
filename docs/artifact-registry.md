@@ -17,10 +17,12 @@ New documents in this repository take the next number **from 500**, so that NFHo
 | Short Name | Artifact Type | Primary File | Next Available Version |
 | --- | --- | --- | --- |
 | MIL | Milestone / Gateway | docs/milestones/*.md | 500 |
-| RC | SQA Review Record | docs/sqa/reviews/rc-*.md | 507 |
+| RC | SQA Review Record | docs/sqa/reviews/rc-*.md | 508 |
 | TM | Traceability Matrix | docs/sqa/traceability-matrix.md | 002 |
 | ADR | Architecture Decision Record | docs/adr/adr-NNNN-*.md | 0501 |
 | DSA | CI/CD and DevSecOps Assessment (no catalog type, proposed upstream) | docs/sqa/devsecops-assessment.md | 002 |
+| SAMM | OWASP SAMM Self-Assessment (no catalog type, proposed upstream) | docs/sqa/samm-baseline.md | 501 |
+| DORA | DORA Metrics Report, one per month (no catalog type, proposed upstream) | docs/sqa/dora/dora-NNN-YYYY-MM.md | 501 |
 
 ## Languages
 
@@ -41,7 +43,7 @@ The same settings as NFHotel.
 | Artifact types | Register | Written in the PO language |
 | --- | --- | --- |
 | MIL | IT Executive English | Yes |
-| OC, SD, DCD, ERD, ADR, TM, RC, QC, source code | IT Professional English | No |
+| OC, SD, DCD, ERD, ADR, TM, RC, QC, SAMM, DORA, source code | IT Professional English | No |
 
 ## Notes
 

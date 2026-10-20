@@ -3,8 +3,8 @@
 # the release-images action, without pushing, and the throwaway end-to-end stack of
 # MIL-027 (NFHotel), started from that checkout and checked from its own network.
 #
-# Triggers: pull requests to main, pushes to main, and by hand (with the NFHotel ref to
-#   build).
+# Triggers: every pull request (also one stacked on another branch), pushes to main, and
+#   by hand (with the NFHotel ref to build).
 # Secrets: none. NFHotel is public and is read without a token; nothing is pushed, and
 #   nothing outside this repository changes.
 # Verified with actionlint 1.7.7 (tests/lint.sh).
@@ -12,7 +12,6 @@ name: DevOps CI
 
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -59,6 +58,7 @@ jobs:
           - test-vm-setup.sh
           - test-scan-gate.sh
           - test-dast-rules.sh
+          - test-dora-metrics.sh
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
