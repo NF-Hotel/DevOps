@@ -1,6 +1,7 @@
-# CI of NF-Hotel/DevOps (MIL-025 task 4): linters, the script tests, and a
+# CI of NF-Hotel/DevOps (MIL-025 task 4): linters, the script tests, a
 # cross-repository build of the NF Hotel images from an NF-Hotel/NFHotel checkout through
-# the release-images action, without pushing.
+# the release-images action, without pushing, and the throwaway end-to-end stack of
+# MIL-027 (NFHotel), started from that checkout and checked from its own network.
 #
 # Triggers: pull requests to main, pushes to main, and by hand (with the NFHotel ref to
 #   build).
@@ -52,7 +53,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: [test-deploy-release.sh, test-cd-steps.sh, test-vm-setup.sh, test-scan-gate.sh]
+        test:
+          - test-deploy-release.sh
+          - test-cd-steps.sh
+          - test-vm-setup.sh
+          - test-scan-gate.sh
+          - test-dast-rules.sh
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -106,6 +112,30 @@ jobs:
         env:
           APP_SHA: ${{ steps.app.outputs.sha }}
         run: bash tests/check-release-build.sh "$APP_SHA"
+
+  e2e-stack:
+    name: End-to-end stack (MIL-027)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out DevOps
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out NF-Hotel/NFHotel
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: NF-Hotel/NFHotel
+          ref: ${{ env.NFHOTEL_REF }}
+          path: nfhotel
+          persist-credentials: false
+      - name: Start the throwaway stack
+        run: bash scripts/e2e-stack.sh up --app-dir nfhotel --out "$RUNNER_TEMP/e2e-stack"
+      - name: Check the stack from its own network
+        run: bash tests/check-e2e-stack.sh "$RUNNER_TEMP/e2e-stack/stack.env"
+      - name: Remove the stack
+        if: always()
+        run: bash scripts/e2e-stack.sh down
 
   database:
     name: PostgreSQL preparation (real migrations)
