@@ -58,6 +58,8 @@ Recorded in RC-140 of NFHotel and below, from Scorecard v5.5.0 run locally on 20
 | NF-Hotel/NFHotel | `7c6f348` | 5.1 / 10 |
 | NF-Hotel/DevOps | `9b572d2` | 2.8 / 10 |
 
+The DevOps score reflects that `main` holds only the first commit of the migration until NF-Hotel/DevOps#1 to #10 are merged: no workflow, no `SECURITY.md` and no Dependabot configuration are on `main` yet, so Dangerous-Workflow, Token-Permissions and Pinned-Dependencies are not scored (n/a), and Security-Policy, Dependency-Update-Tool and SAST are 0. Code-Review is 0 because #6 was merged without an approval (SAMM-500 finding 4). Branch-Protection is 5 (1 approval; no code owner review). Binary-Artifacts and Vulnerabilities are 10. Expect the score to rise when the stack is merged; the next weekly run records it. The NFHotel checks, with the reasons, are in RC-140 of NFHotel (NF-Hotel/NFHotel#197).
+
 ## Findings
 
 - **The DORA definitions are proxies, stated as such.** A failed CD run counts as a failed deployment, and a deployment counts as rework when it recovers an incident or ships a pull request labelled `hotfix`. The label does not exist yet; until it is used, rework comes only from recoveries.
