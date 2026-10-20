@@ -17,9 +17,9 @@ New documents in this repository take the next number **from 500**, so that NFHo
 | Short Name | Artifact Type | Primary File | Next Available Version |
 | --- | --- | --- | --- |
 | MIL | Milestone / Gateway | docs/milestones/*.md | 500 |
-| RC | SQA Review Record | docs/sqa/reviews/rc-*.md | 502 |
+| RC | SQA Review Record | docs/sqa/reviews/rc-*.md | 503 |
 | TM | Traceability Matrix | docs/sqa/traceability-matrix.md | 002 |
-| ADR | Architecture Decision Record | docs/adr/adr-NNNN-*.md | 0500 |
+| ADR | Architecture Decision Record | docs/adr/adr-NNNN-*.md | 0501 |
 | DSA | CI/CD and DevSecOps Assessment (no catalog type, proposed upstream) | docs/sqa/devsecops-assessment.md | 002 |
 
 ## Languages

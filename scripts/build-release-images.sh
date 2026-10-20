@@ -117,9 +117,25 @@ export POSTGRES_PASSWORD="release-build"
 export API_TOKEN="release-build"
 
 digests=()
+built=0
 for entry in "${IMAGES[@]}"; do
   read -r name folder image_var env_var service <<<"$entry"
   dir="$ROOT/deploy/$folder"
+
+  # A frozen image is not built: its source can no longer be built, so the release
+  # carries the last good digest, written once in deploy/<folder>/frozen-image (ADR-0500).
+  if [[ -f "$dir/frozen-image" ]]; then
+    frozen="$(tr -d '[:space:]' <"$dir/frozen-image")"
+    [[ "$frozen" =~ ^${registry//./\\.}/${name}@sha256:[0-9a-f]{64}$ ]] ||
+      die "$dir/frozen-image must hold $registry/$name@sha256:<64 hex>, not '$frozen'"
+    echo "==> $name is frozen at $frozen (not built)"
+    if ((push)); then
+      docker buildx imagetools inspect "$frozen" >/dev/null || die "the frozen image $frozen is not in the registry"
+      digests+=("\"$name\": \"$frozen\"")
+    fi
+    continue
+  fi
+
   examples=("$dir"/*.env.example)
   [[ -f "${examples[0]}" ]] || die "no settings example in $dir"
   cp "${examples[0]}" "$settings/$folder.env"
@@ -132,6 +148,7 @@ for entry in "${IMAGES[@]}"; do
   echo "==> building $tag"
   (cd "$dir" && docker compose build --pull "$service") || die "building $name failed"
   docker image inspect "$tag" >/dev/null || die "no image $tag after the build"
+  built=$((built + 1))
 
   if ((push)); then
     echo "==> pushing $tag"
@@ -145,7 +162,7 @@ for entry in "${IMAGES[@]}"; do
 done
 
 ((push)) || {
-  echo "==> built ${#IMAGES[@]} images; nothing pushed (give --push to publish)"
+  echo "==> built $built of ${#IMAGES[@]} images (the others are frozen); nothing pushed (give --push to publish)"
   exit 0
 }
 

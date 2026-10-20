@@ -31,6 +31,7 @@ Tracks the backward and forward links of the artifact instances in this reposito
 | [ADR-0009] | ADR | en | it | [DSA-001] | [MIL-021], [MIL-023] | [RC-096] |
 | [ADR-0010] | ADR | en | it | [DSA-001], [ADR-0012] | [MIL-021], [ADR-0011] | [RC-098], [RC-500] |
 | [ADR-0011] | ADR | en | it | [ADR-0010], [DSA-001] | [MIL-024] | [RC-100] |
+| [ADR-0500] | ADR | en | it | [ADR-0007], [DSA-001] | [MIL-021] | [RC-502] |
 | Actions, scripts, compose files, CI | Source code (SH, YML, WF) | - | - | [ADR-0007], [ADR-0011], [ADR-0012] | - | [RC-094], [RC-095], [RC-101], [RC-501] |
 
 ---
@@ -62,4 +63,6 @@ Tracks the backward and forward links of the artifact instances in this reposito
 [RC-101]: ./reviews/rc-101-mil-024-code-and-gate.md
 [RC-500]: ./reviews/rc-500-migration-documents.md
 [RC-501]: ./reviews/rc-501-migration-code.md
+[RC-502]: ./reviews/rc-502-adr-0500-frozen-image.md
+[ADR-0500]: ../adr/adr-0500-freeze-market-analysis-image.md
 [c1dc5f7]: https://github.com/NF-Hotel/DevOps/commit/c1dc5f74e11ce4e10f7f1dbdf5ef304e4db8429e
