@@ -11,8 +11,8 @@
 ## Version History
 | Date | Status | Author | Reviewer | Change | Commit |
 | --- | --- | --- | --- | --- | --- |
-| 2026-10-20 | Deprecated | mikemike | S01 | Initial version (risk R17, issue #2) | pending |
-| 2026-10-20 | Accepted | mikemike | AI as stand-in for S01 | Accepted after RC-502 Go | pending |
+| 2026-10-20 | Deprecated | mikemike | S01 | Initial version (risk R17, issue #2) | [150af89] |
+| 2026-10-20 | Accepted | mikemike | AI as stand-in for S01 | Accepted after RC-502 Go | [150af89] |
 
 Allowed Status values: `Proposed`, `Accepted`, `Rejected`, `Deprecated`, `Superseded by ADR-NNNN`.
 
@@ -69,3 +69,4 @@ We freeze `market-analysis` at its last good digest until S01 decides the servic
 [ADR-0007]: ./adr-0007-cicd-and-supply-chain.md
 [DSA-001]: ../sqa/devsecops-assessment.md
 [MIL-021]: ../milestones/mil-021-secure-cicd-foundation.md
+[150af89]: https://github.com/NF-Hotel/DevOps/commit/150af89418a891c0fe10d6da3e519ab54290b7cc

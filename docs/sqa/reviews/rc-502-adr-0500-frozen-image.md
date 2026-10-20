@@ -9,7 +9,7 @@
 ## Version History
 | Date | Status | Author | Reviewer | Change | Commit |
 | --- | --- | --- | --- | --- | --- |
-| 2026-10-20 | Accepted | mikemike | AI as stand-in for S01 | Initial version | pending |
+| 2026-10-20 | Accepted | mikemike | AI as stand-in for S01 | Initial version | [150af89] |
 
 ---
 
@@ -55,3 +55,4 @@ Go: the change unblocks releases without changing what the VM runs, and states i
 [ADR-0500]: ../../adr/adr-0500-freeze-market-analysis-image.md
 [QC-ADR-001]: ../../../framework/qc/artifacts/qc-adr.md
 [QC-SH-001]: ../../../framework/qc/code/qc-programming-shell.md
+[150af89]: https://github.com/NF-Hotel/DevOps/commit/150af89418a891c0fe10d6da3e519ab54290b7cc
