@@ -9,7 +9,7 @@
 ## Version History
 | Date | Status | Author | Reviewer | Change | Commit |
 | --- | --- | --- | --- | --- | --- |
-| 2026-10-20 | Accepted | mikemike | AI as stand-in for S03 | Initial version | pending |
+| 2026-10-20 | Accepted | mikemike | AI as stand-in for S03 | Initial version | [7521bb5] |
 
 ---
 
@@ -66,3 +66,4 @@ Go: every criterion of MIL-024 passes.
 [MIL-024]: ../../milestones/mil-024-postgresql-api-readiness.md
 [ADR-0011]: ../../adr/adr-0011-postgresql-access-for-the-api.md
 [RC-505]: ./rc-505-restore-drill-2026-10-20.md
+[7521bb5]: https://github.com/NF-Hotel/DevOps/commit/7521bb57c9970b6abdbd8e8c1675f67621598b26
