@@ -110,23 +110,37 @@ nginx_port() {
   echo "${value:-$2}"
 }
 
+# nginx_host: the address the proxy is published on (NGINX_BIND of the nginx settings file).
+# The proxy is bound to one address, for example the tailnet address of the VM, so a test on
+# 127.0.0.1 would not reach it. An empty value or 0.0.0.0 (all addresses) is tested on 127.0.0.1.
+nginx_host() {
+  local value
+  value="$(sed -n 's/^NGINX_BIND=\([0-9.]\{7,15\}\)$/\1/p' "$app_dir/deploy/nginx/nginx.env" 2>/dev/null | tail -n 1)"
+  if [[ -z "$value" || "$value" == 0.0.0.0 ]]; then
+    echo 127.0.0.1
+  else
+    echo "$value"
+  fi
+}
+
 smoke_test() {
-  local http https code
+  local host http https code
+  host="$(nginx_host)"
   http="$(nginx_port NGINX_HTTP_PORT 80)"
   https="$(nginx_port NGINX_HTTPS_PORT 443)"
-  code="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "http://127.0.0.1:$http/")" || true
+  code="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "http://$host:$http/")" || true
   [[ "$code" == "301" ]] || {
-    echo "smoke test: port $http answered '$code', expected 301" >&2
+    echo "smoke test: $host:$http answered '$code', expected 301" >&2
     return 1
   }
   # The development certificate is self-signed, so the certificate is not checked here;
   # the TLS settings themselves are checked by the smoke test of MIL-017.
-  code="$(curl --silent --insecure --output /dev/null --write-out '%{http_code}' --max-time 10 "https://127.0.0.1:$https/")" || true
+  code="$(curl --silent --insecure --output /dev/null --write-out '%{http_code}' --max-time 10 "https://$host:$https/")" || true
   [[ "$code" == "200" ]] || {
-    echo "smoke test: port $https answered '$code', expected 200" >&2
+    echo "smoke test: $host:$https answered '$code', expected 200" >&2
     return 1
   }
-  echo "smoke test: $http answers 301, $https answers 200"
+  echo "smoke test: $host:$http answers 301, $host:$https answers 200"
 }
 
 # apply <app-sha> <devops-sha> <web> <api> <analysis> <benchmark>: check out the DevOps
